@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 0.1.4
 - (EN) Added changelog-based release notes generation so GitHub Releases use the matching version section as their body.
 - (JA) GitHub Release の本文に対象バージョンの changelog 節を使う、changelog ベースのリリースノート生成を追加。
 - (EN) Added release preparation that moves `## Unreleased` entries into `## <version>` during the release workflow.
