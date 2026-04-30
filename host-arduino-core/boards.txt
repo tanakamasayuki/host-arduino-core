@@ -1,0 +1,5 @@
+host.name=Host
+host.build.core=host
+host.build.board=HOST
+host.upload.tool.default=run
+host.upload.protocol=run

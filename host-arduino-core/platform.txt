@@ -1,0 +1,34 @@
+name=Host Arduino Core
+version=0.1.0
+
+compiler.path=
+compiler.c.cmd=gcc
+compiler.cpp.cmd=g++
+compiler.ar.cmd=ar
+compiler.size.cmd=size
+compiler.ar.flags=rcs
+compiler.ar.extra_flags=
+
+compiler.c.flags=-std=gnu11 -O2 -Wall -ffunction-sections -fdata-sections
+compiler.cxx.flags=-std=gnu++11 -O2 -Wall -ffunction-sections -fdata-sections
+compiler.ldflags=
+build.extra_flags=-DARDUINO=10819 -DHOST_ARDUINO=1
+
+recipe.c.o.pattern={compiler.path}{compiler.c.cmd} {compiler.c.flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -c -o {object_file} {source_file}
+recipe.cpp.o.pattern={compiler.path}{compiler.cpp.cmd} {compiler.cxx.flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -c -o {object_file} {source_file}
+recipe.ar.pattern={compiler.path}{compiler.ar.cmd} {compiler.ar.flags} {compiler.ar.extra_flags} "{archive_file_path}" "{object_file}"
+
+compiler.c.elf.cmd={compiler.cpp.cmd}
+compiler.c.elf.flags={compiler.cxx.flags}
+recipe.c.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
+recipe.cpp.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
+recipe.c.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
+recipe.cpp.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
+
+tools.run.upload.pattern="{build.path}/{build.project_name}.out"
+tools.run.upload.pattern.windows="{build.path}/{build.project_name}.out"
+
+recipe.size.pattern={compiler.path}{compiler.size.cmd} {build.path}/{build.project_name}.out
+
+compiler.core=core
+build.core=host
