@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 0.1.5
 - (EN) Expanded the host Arduino compatibility layer with Arduino-style `String`, `Print`, `Stream`, and `HardwareSerial` APIs.
 - (JA) Arduino 互換レイヤを拡張し、Arduino 風の `String`、`Print`、`Stream`、`HardwareSerial` API を追加。
 - (EN) Added common compatibility helpers and headers such as `pgmspace.h`, `Printable.h`, `Print::printf()`, GPIO/timing stubs, bit helpers, random helpers, and PROGMEM macros.

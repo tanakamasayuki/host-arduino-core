@@ -40,6 +40,14 @@
           "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.4/host-arduino-core-0.1.4.zip",
           "archiveFileName": "host-arduino-core-0.1.4.zip",
           "checksum": "SHA-256:a35d4c3e0b60c8bb7001d0c5f19db97b8a641226538a5c56df1847a22b28e999"
+        },
+        {
+          "name": "Host Arduino Core",
+          "architecture": "host",
+          "version": "0.1.5",
+          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.5/host-arduino-core-0.1.5.zip",
+          "archiveFileName": "host-arduino-core-0.1.5.zip",
+          "checksum": "SHA-256:76dce7c2423ba912c526812bfb415411fbb579086ef60cf5f5c3eed543794171"
         }
       ],
       "tools": []
