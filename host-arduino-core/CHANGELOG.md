@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.5
+- (EN) Expanded the host Arduino compatibility layer with Arduino-style `String`, `Print`, `Stream`, and `HardwareSerial` APIs.
+- (JA) Arduino 互換レイヤを拡張し、Arduino 風の `String`、`Print`、`Stream`、`HardwareSerial` API を追加。
+- (EN) Added common compatibility helpers and headers such as `pgmspace.h`, `Printable.h`, `Print::printf()`, GPIO/timing stubs, bit helpers, random helpers, and PROGMEM macros.
+- (JA) `pgmspace.h`、`Printable.h`、`Print::printf()`、GPIO / timing スタブ、bit helper、random helper、PROGMEM マクロなどの互換機能を追加。
+
 ## 0.1.4
 - (EN) Added changelog-based release notes generation so GitHub Releases use the matching version section as their body.
 - (JA) GitHub Release の本文に対象バージョンの changelog 節を使う、changelog ベースのリリースノート生成を追加。

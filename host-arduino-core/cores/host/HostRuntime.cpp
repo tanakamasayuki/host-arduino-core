@@ -695,4 +695,14 @@ int serialRead()
     return static_cast<int>(ch);
 }
 
+int serialPeek()
+{
+    std::lock_guard<std::mutex> lock(g_serial_mutex);
+    if (g_input_buffer.empty()) {
+        return -1;
+    }
+    const unsigned char ch = static_cast<unsigned char>(g_input_buffer[0]);
+    return static_cast<int>(ch);
+}
+
 } // namespace HostArduino
