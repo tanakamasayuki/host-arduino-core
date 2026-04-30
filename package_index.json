@@ -1,0 +1,24 @@
+{
+  "packages": [
+    {
+      "name": "lang-ship",
+      "maintainer": "tanakamasayuki",
+      "websiteURL": "https://github.com/tanakamasayuki/host-arduino-core",
+      "email": "",
+      "help": {
+        "online": "https://github.com/tanakamasayuki/host-arduino-core"
+      },
+      "platforms": [
+        {
+          "name": "Host Arduino Core",
+          "architecture": "host",
+          "version": "0.1.0",
+          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.0/host-arduino-core-0.1.0.zip",
+          "archiveFileName": "host-arduino-core-0.1.0.zip",
+          "checksum": "SHA-256:7033e4b4426e41690689c8ccd0203abdf87c0894162db3ab2891e4abb7558f15"
+        }
+      ],
+      "tools": []
+    }
+  ]
+}

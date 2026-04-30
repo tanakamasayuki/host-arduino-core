@@ -45,6 +45,10 @@
 
 - Arduino Boards Manager からインストール可能なパッケージとして提供できること。
 - Arduino CLI から core install 可能であること。
+- Boards Manager のパッケージ名は `lang-ship` とすること。
+- アーキテクチャ名は `host` とすること。
+- ボード ID は `host` とし、FQBN は `lang-ship:host:host` とすること。
+- Core は `host` として提供すること。
 - パッケージには、ビルドとテスト実行に必要な最小限の Arduino Core を含めること。
 - パッケージには、リリース配布に必要なメタデータを含めること。
 - パッケージは、コンパイラやリンカなどのビルドツールを同梱または自動インストールしないこと。

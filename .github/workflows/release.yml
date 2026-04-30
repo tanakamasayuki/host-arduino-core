@@ -1,0 +1,86 @@
+name: Build and Release Host Arduino Core
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (without v). If empty uses tag name without v'
+        required: false
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            TAG=${GITHUB_REF_NAME:-$(git describe --tags --abbrev=0)}
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ensure tag exists
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+          VER=${{ steps.ver.outputs.version }}
+          TAG=v$VER
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists on remote."
+          else
+            git config user.email "actions@github.com"
+            git config user.name "github-actions"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "$TAG"
+          fi
+
+      - name: Build package and update index
+        run: |
+          set -euo pipefail
+          VER=${{ steps.ver.outputs.version }}
+          python3 scripts/build_package.py --version "$VER" --repo "${{ github.repository }}"
+
+      - name: Commit package_index.json back to repository
+        run: |
+          set -euo pipefail
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git fetch origin main:refs/remotes/origin/main || true
+          git checkout main || git checkout -b main
+          git pull --ff-only origin main || true
+          git add package_index.json
+          if git diff --staged --quiet; then
+            echo "No changes to package_index.json"
+          else
+            git commit -m "Update package_index.json for v${{ steps.ver.outputs.version }}"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:main
+          fi
+
+      - name: Publish package to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./package
+          publish_branch: gh-pages
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          files: |
+            host-arduino-core-${{ steps.ver.outputs.version }}.zip
+            package_index.json
