@@ -5,9 +5,10 @@
 #include <stdint.h>
 
 #include <chrono>
-#include <sstream>
 #include <string>
 #include <thread>
+
+#include "Stream.h"
 
 namespace HostArduino {
 
@@ -18,49 +19,15 @@ void runtimePoll();
 size_t serialWrite(const char *data, size_t len);
 int serialAvailable();
 int serialRead();
+int serialPeek();
 
 } // namespace HostArduino
 
-class SerialClass {
+class SerialClass : public Stream {
 public:
     void begin(unsigned long) {}
+    void begin(unsigned long, uint32_t) {}
     void end() {}
-
-    template <typename T>
-    void print(const T &value)
-    {
-        std::ostringstream oss;
-        oss << value;
-        const std::string s = oss.str();
-        HostArduino::serialWrite(s.data(), s.size());
-    }
-
-    void print(const char *value)
-    {
-        if (!value) {
-            return;
-        }
-        const std::string s(value);
-        HostArduino::serialWrite(s.data(), s.size());
-    }
-
-    void print(char value)
-    {
-        HostArduino::serialWrite(&value, 1);
-    }
-
-    template <typename T>
-    void println(const T &value)
-    {
-        print(value);
-        println();
-    }
-
-    void println()
-    {
-        const char nl = '\n';
-        HostArduino::serialWrite(&nl, 1);
-    }
 
     size_t write(uint8_t value)
     {
@@ -86,6 +53,11 @@ public:
     int read()
     {
         return HostArduino::serialRead();
+    }
+
+    int peek()
+    {
+        return HostArduino::serialPeek();
     }
 
     int availableForWrite()
@@ -144,5 +116,17 @@ inline void digitalWrite(int, int) {}
 inline int digitalRead(int) { return 0; }
 inline int analogRead(int) { return 0; }
 inline void analogWrite(int, int) {}
+inline void analogReadResolution(uint8_t) {}
+inline void analogWriteResolution(uint8_t) {}
+inline void analogSetAttenuation(int) {}
+inline void analogSetPinAttenuation(int, int) {}
+inline int touchRead(int) { return 0; }
+inline void noTone(int) {}
+inline void tone(int, unsigned int, unsigned long = 0) {}
+inline int digitalPinToInterrupt(int pin) { return pin; }
+inline void attachInterrupt(int, void (*)(void), int) {}
+inline void detachInterrupt(int) {}
+inline unsigned long pulseIn(int, int, unsigned long = 1000000UL) { return 0; }
+inline unsigned long pulseInLong(int, int, unsigned long = 1000000UL) { return 0; }
 
 #endif
