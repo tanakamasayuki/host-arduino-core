@@ -41,7 +41,9 @@ lang-ship:host:host
 - `cores/host/HostRuntime.{h,cpp}`: ホスト実行ランタイム、TCP 経由の `Serial`、プロセス起動、接続情報ファイル処理。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
 - `scripts/build_package.py`: `package/host-arduino-core/` を作成し、ZIP 作成、SHA-256 算出、`package_index.json` 更新を行います。
+- `scripts/prepare_release.py`: `CHANGELOG.md` の unreleased entries をリリースバージョンの節へ移動します。
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
+- `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
@@ -228,9 +230,11 @@ python3 scripts/build_package.py --version 0.1.0 --repo tanakamasayuki/host-ardu
 
 リリース手順:
 
-1. 変更を `main` にコミットします。
-2. `v0.1.0` のようなタグを push するか、GitHub Actions から `Build and Release Host Arduino Core` を手動実行します。
-3. workflow が ZIP を作成し、`package_index.json` を更新し、`package/` を `gh-pages` に公開し、GitHub Release に ZIP と index を添付します。
+1. `CHANGELOG.md` を更新します。変更内容を `## Unreleased` に追記します。
+2. 変更を `main` にコミットします。
+3. `v0.1.0` のようなタグを push するか、GitHub Actions から `Build and Release Host Arduino Core` を手動実行します。
+4. workflow が `## Unreleased` の内容を `## <version>` へ移動し、ZIP を作成し、`package_index.json` を更新し、`package/` を `gh-pages` に公開し、GitHub Release に ZIP と index を添付します。
+5. GitHub Release の本文には、`## 0.1.0` のような `CHANGELOG.md` の対象バージョン節が入ります。
 
 ## 制限事項
 

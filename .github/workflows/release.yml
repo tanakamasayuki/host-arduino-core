@@ -33,6 +33,68 @@ jobs:
             echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Run release preparation
+        run: |
+          set -euo pipefail
+          VER=${{ steps.ver.outputs.version }}
+          python3 scripts/prepare_release.py --version "$VER"
+
+      - name: Build package and update index
+        run: |
+          set -euo pipefail
+          VER=${{ steps.ver.outputs.version }}
+          python3 scripts/build_package.py --version "$VER" --repo "${{ github.repository }}"
+
+      - name: Build release body from CHANGELOG
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          version = "${{ steps.ver.outputs.version }}"
+          section_header = f"## {version}"
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+
+          try:
+              start = changelog.index(section_header) + 1
+          except ValueError as exc:
+              raise SystemExit(f"Version section {section_header} not found in CHANGELOG.md") from exc
+
+          end = len(changelog)
+          for i in range(start, len(changelog)):
+              if changelog[i].startswith("## "):
+                  end = i
+                  break
+
+          body_lines = changelog[start:end]
+          while body_lines and not body_lines[0].strip():
+              body_lines.pop(0)
+          while body_lines and not body_lines[-1].strip():
+              body_lines.pop()
+
+          if not body_lines:
+              body_lines = [
+                  "- (EN) No user-facing changes recorded.",
+                  "- (JA) ユーザー向け変更の記録はありません。",
+              ]
+
+          Path("release_body.md").write_text("\n".join(body_lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Commit release changes back to repository
+        run: |
+          set -euo pipefail
+          git config user.email "actions@github.com"
+          git config user.name "github-actions"
+          git fetch origin main:refs/remotes/origin/main || true
+          git add CHANGELOG.md package_index.json
+          if git diff --staged --quiet; then
+            echo "No release changes to commit"
+          else
+            git commit -m "chore(release): v${{ steps.ver.outputs.version }}"
+            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:main
+          fi
+
       - name: Ensure tag exists
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
@@ -42,32 +104,8 @@ jobs:
           if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
             echo "Tag $TAG already exists on remote."
           else
-            git config user.email "actions@github.com"
-            git config user.name "github-actions"
             git tag -a "$TAG" -m "Release $TAG"
             git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "$TAG"
-          fi
-
-      - name: Build package and update index
-        run: |
-          set -euo pipefail
-          VER=${{ steps.ver.outputs.version }}
-          python3 scripts/build_package.py --version "$VER" --repo "${{ github.repository }}"
-
-      - name: Commit package_index.json back to repository
-        run: |
-          set -euo pipefail
-          git config user.email "actions@github.com"
-          git config user.name "github-actions"
-          git fetch origin main:refs/remotes/origin/main || true
-          git checkout main || git checkout -b main
-          git pull --ff-only origin main || true
-          git add package_index.json
-          if git diff --staged --quiet; then
-            echo "No changes to package_index.json"
-          else
-            git commit -m "Update package_index.json for v${{ steps.ver.outputs.version }}"
-            git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:main
           fi
 
       - name: Publish package to GitHub Pages
@@ -78,9 +116,11 @@ jobs:
           publish_branch: gh-pages
 
       - name: Create GitHub Release and upload assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.version }}
+          body_path: release_body.md
+          generate_release_notes: false
           files: |
             host-arduino-core-${{ steps.ver.outputs.version }}.zip
             package_index.json

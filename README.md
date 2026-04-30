@@ -41,7 +41,9 @@ No board menus are defined in the initial version. SDL2 and graphical host targe
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
 - `scripts/build_package.py`: creates `package/host-arduino-core/`, produces the ZIP, computes SHA-256, and updates `package_index.json`.
+- `scripts/prepare_release.py`: moves `CHANGELOG.md` unreleased entries into the release version section.
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
+- `CHANGELOG.md`: release notes in English and Japanese. The release workflow uses the matching version section as the GitHub Release body.
 - `docs/requirements.ja.md`: requirements document.
 - `package_index.json`: checked-in Boards Manager index, updated by the release workflow.
 
@@ -228,9 +230,11 @@ This creates:
 
 Release flow:
 
-1. Commit changes to `main`.
-2. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
-3. The workflow builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
+1. Update `CHANGELOG.md`: add entries under `## Unreleased`.
+2. Commit changes to `main`.
+3. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
+4. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
+5. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
 
 ## Limitations
 
