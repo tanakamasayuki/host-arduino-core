@@ -12,7 +12,7 @@ PACKAGE_MAINTAINER = "tanakamasayuki"
 PLATFORM_NAME = "Host Arduino Core"
 ARCHITECTURE = "host"
 DEFAULT_REPO = "tanakamasayuki/host-arduino-core"
-PACKAGE_FILES = ("cores", "libraries", "platform.txt", "boards.txt", "README.md", "LICENSE")
+PACKAGE_FILES = ("cores", "libraries", "platform.txt", "boards.txt", "README.md", "README.ja.md", "LICENSE")
 
 
 def sha256_file(path: Path) -> str:
