@@ -19,6 +19,8 @@ public:
     String(unsigned int value, unsigned char base = 10) : value_(formatUnsigned(value, base)) {}
     String(long value, unsigned char base = 10) : value_(formatSigned(value, base)) {}
     String(unsigned long value, unsigned char base = 10) : value_(formatUnsigned(value, base)) {}
+    String(long long value, unsigned char base = 10) : value_(formatSigned(value, base)) {}
+    String(unsigned long long value, unsigned char base = 10) : value_(formatUnsigned(value, base)) {}
     String(float value, unsigned char decimalPlaces = 2) : value_(formatFloat(value, decimalPlaces)) {}
     String(double value, unsigned char decimalPlaces = 2) : value_(formatFloat(value, decimalPlaces)) {}
 
@@ -80,6 +82,16 @@ public:
         value_ += String(value).value_;
         return true;
     }
+    bool concat(long long value)
+    {
+        value_ += String(value).value_;
+        return true;
+    }
+    bool concat(unsigned long long value)
+    {
+        value_ += String(value).value_;
+        return true;
+    }
     bool concat(float value)
     {
         value_ += String(value).value_;
@@ -122,6 +134,26 @@ public:
         return *this;
     }
     String &operator+=(unsigned long rhs)
+    {
+        concat(rhs);
+        return *this;
+    }
+    String &operator+=(long long rhs)
+    {
+        concat(rhs);
+        return *this;
+    }
+    String &operator+=(unsigned long long rhs)
+    {
+        concat(rhs);
+        return *this;
+    }
+    String &operator+=(float rhs)
+    {
+        concat(rhs);
+        return *this;
+    }
+    String &operator+=(double rhs)
     {
         concat(rhs);
         return *this;
@@ -267,7 +299,7 @@ private:
         std::transform(value.begin(), value.end(), value.begin(), toLower);
         return value;
     }
-    static std::string formatUnsigned(unsigned long value, unsigned char base)
+    static std::string formatUnsigned(unsigned long long value, unsigned char base)
     {
         if (base == 10 || base < 2 || base > 36) {
             std::ostringstream oss;
@@ -282,14 +314,14 @@ private:
         } while (value);
         return out;
     }
-    static std::string formatSigned(long value, unsigned char base)
+    static std::string formatSigned(long long value, unsigned char base)
     {
         if (base == 10) {
             std::ostringstream oss;
             oss << value;
             return oss.str();
         }
-        return formatUnsigned(static_cast<unsigned long>(value), base);
+        return formatUnsigned(static_cast<unsigned long long>(value), base);
     }
     static std::string formatFloat(double value, unsigned char decimalPlaces)
     {
@@ -310,6 +342,14 @@ inline String operator+(const String &lhs, const String &rhs)
 inline String operator+(const String &lhs, const char *rhs) { return lhs + String(rhs); }
 inline String operator+(const char *lhs, const String &rhs) { return String(lhs) + rhs; }
 inline String operator+(const String &lhs, char rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, int rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, unsigned int rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, long rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, unsigned long rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, long long rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, unsigned long long rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, float rhs) { return lhs + String(rhs); }
+inline String operator+(const String &lhs, double rhs) { return lhs + String(rhs); }
 inline bool operator==(const String &lhs, const String &rhs) { return lhs.equals(rhs); }
 inline bool operator==(const String &lhs, const char *rhs) { return lhs.equals(rhs); }
 inline bool operator==(const char *lhs, const String &rhs) { return rhs.equals(lhs); }

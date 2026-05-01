@@ -9,6 +9,7 @@
 #include <cstring>
 #include <vector>
 
+#include "pgmspace.h"
 #include "WString.h"
 
 #ifndef DEC
@@ -56,24 +57,32 @@ public:
 
     size_t print(const String &value) { return write(value.c_str()); }
     size_t print(const char *value) { return write(value); }
+    size_t print(const __FlashStringHelper *value) { return print(reinterpret_cast<const char *>(value)); }
     size_t print(char value) { return write(static_cast<uint8_t>(value)); }
+    size_t print(bool value) { return print(value ? 1 : 0); }
     size_t print(unsigned char value, int base = DEC) { return printNumber(value, base); }
     size_t print(int value, int base = DEC) { return printSigned(value, base); }
     size_t print(unsigned int value, int base = DEC) { return printNumber(value, base); }
     size_t print(long value, int base = DEC) { return printSigned(value, base); }
     size_t print(unsigned long value, int base = DEC) { return printNumber(value, base); }
+    size_t print(long long value, int base = DEC) { return printSigned(value, base); }
+    size_t print(unsigned long long value, int base = DEC) { return printNumber(value, base); }
     size_t print(double value, int digits = 2) { return print(String(value, static_cast<unsigned char>(digits))); }
     size_t print(const Printable &value) { return value.printTo(*this); }
 
     size_t println() { return write("\r\n"); }
     size_t println(const String &value) { return print(value) + println(); }
     size_t println(const char *value) { return print(value) + println(); }
+    size_t println(const __FlashStringHelper *value) { return print(value) + println(); }
     size_t println(char value) { return print(value) + println(); }
+    size_t println(bool value) { return print(value) + println(); }
     size_t println(unsigned char value, int base = DEC) { return print(value, base) + println(); }
     size_t println(int value, int base = DEC) { return print(value, base) + println(); }
     size_t println(unsigned int value, int base = DEC) { return print(value, base) + println(); }
     size_t println(long value, int base = DEC) { return print(value, base) + println(); }
     size_t println(unsigned long value, int base = DEC) { return print(value, base) + println(); }
+    size_t println(long long value, int base = DEC) { return print(value, base) + println(); }
+    size_t println(unsigned long long value, int base = DEC) { return print(value, base) + println(); }
     size_t println(double value, int digits = 2) { return print(value, digits) + println(); }
     size_t println(const Printable &value) { return print(value) + println(); }
 
@@ -108,11 +117,11 @@ public:
 private:
     int write_error_ = 0;
 
-    size_t printNumber(unsigned long value, int base)
+    size_t printNumber(unsigned long long value, int base)
     {
         return print(String(value, static_cast<unsigned char>(base)));
     }
-    size_t printSigned(long value, int base)
+    size_t printSigned(long long value, int base)
     {
         return print(String(value, static_cast<unsigned char>(base)));
     }

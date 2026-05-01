@@ -91,28 +91,6 @@ typedef uint16_t word;
 #define _BV(b) (1UL << (b))
 #endif
 
-#ifndef PROGMEM
-#define PROGMEM
-#endif
-#ifndef PGM_P
-#define PGM_P const char *
-#endif
-#ifndef F
-#define F(str) (str)
-#endif
-#ifndef FPSTR
-#define FPSTR(pstr_pointer) (pstr_pointer)
-#endif
-#define pgm_read_byte(addr) (*(const unsigned char *)(addr))
-#define pgm_read_word(addr) (*(const unsigned short *)(addr))
-#define pgm_read_dword(addr) (*(const unsigned long *)(addr))
-#define pgm_read_ptr(addr) (*(const void * const *)(addr))
-#define strlen_P strlen
-#define strcpy_P strcpy
-#define strncpy_P strncpy
-#define strcmp_P strcmp
-#define strncmp_P strncmp
-
 extern void setup();
 extern void loop();
 
