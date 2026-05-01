@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.0.0
 - (EN) Added AVR-style `__FlashStringHelper` / `F()` compatibility plus `Print` overloads for flash strings.
 - (JA) AVR 風の `__FlashStringHelper` / `F()` 互換と flash string 用の `Print` overload を追加。
 - (EN) Expanded `pgmspace.h` compatibility with common `_P` helpers such as `memcpy_P`, `memcmp_P`, `strcat_P`, `strncat_P`, and `strstr_P`.
