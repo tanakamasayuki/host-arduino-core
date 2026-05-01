@@ -9,6 +9,7 @@
 #include <cstring>
 #include <vector>
 
+#include "pgmspace.h"
 #include "WString.h"
 
 #ifndef DEC
@@ -56,6 +57,7 @@ public:
 
     size_t print(const String &value) { return write(value.c_str()); }
     size_t print(const char *value) { return write(value); }
+    size_t print(const __FlashStringHelper *value) { return print(reinterpret_cast<const char *>(value)); }
     size_t print(char value) { return write(static_cast<uint8_t>(value)); }
     size_t print(unsigned char value, int base = DEC) { return printNumber(value, base); }
     size_t print(int value, int base = DEC) { return printSigned(value, base); }
@@ -68,6 +70,7 @@ public:
     size_t println() { return write("\r\n"); }
     size_t println(const String &value) { return print(value) + println(); }
     size_t println(const char *value) { return print(value) + println(); }
+    size_t println(const __FlashStringHelper *value) { return print(value) + println(); }
     size_t println(char value) { return print(value) + println(); }
     size_t println(unsigned char value, int base = DEC) { return print(value, base) + println(); }
     size_t println(int value, int base = DEC) { return print(value, base) + println(); }
