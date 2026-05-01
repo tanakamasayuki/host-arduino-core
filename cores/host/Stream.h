@@ -81,6 +81,10 @@ public:
     {
         return findUntil(target, NULL);
     }
+    bool find(char *target)
+    {
+        return find(static_cast<const char *>(target));
+    }
     bool findUntil(const char *target, const char *terminator)
     {
         if (!target || !*target) {
@@ -119,6 +123,10 @@ public:
             }
         }
     }
+    bool findUntil(char *target, char *terminator)
+    {
+        return findUntil(static_cast<const char *>(target), static_cast<const char *>(terminator));
+    }
     String readString()
     {
         String out;
@@ -142,12 +150,22 @@ public:
     }
     long parseInt()
     {
-        String token = readToken(true);
+        String token = readToken(true, -1);
+        return token.toInt();
+    }
+    long parseInt(char skipChar)
+    {
+        String token = readToken(true, static_cast<unsigned char>(skipChar));
         return token.toInt();
     }
     float parseFloat()
     {
-        String token = readToken(false);
+        String token = readToken(false, -1);
+        return token.toFloat();
+    }
+    float parseFloat(char skipChar)
+    {
+        String token = readToken(false, static_cast<unsigned char>(skipChar));
         return token.toFloat();
     }
 
@@ -155,7 +173,7 @@ protected:
     unsigned long timeout_ = 1000;
 
 private:
-    String readToken(bool integerOnly)
+    String readToken(bool integerOnly, int skipChar)
     {
         String out;
         bool started = false;
@@ -163,6 +181,10 @@ private:
             const int c = timedPeek();
             if (c < 0) {
                 break;
+            }
+            if (c == skipChar) {
+                read();
+                continue;
             }
             const bool valid = isdigit(c) || c == '-' || c == '+' || (!integerOnly && c == '.');
             if (!valid) {

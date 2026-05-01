@@ -5,6 +5,8 @@
 - (JA) AVR 風の `__FlashStringHelper` / `F()` 互換と flash string 用の `Print` overload を追加。
 - (EN) Expanded `pgmspace.h` compatibility with common `_P` helpers such as `memcpy_P`, `memcmp_P`, `strcat_P`, `strncat_P`, and `strstr_P`.
 - (JA) `memcpy_P`、`memcmp_P`、`strcat_P`、`strncat_P`、`strstr_P` など、よく使われる `_P` helper を `pgmspace.h` に追加。
+- (EN) Added Arduino-style numeric `String` concatenation, 64-bit `Print` output overloads, and additional `Stream` parsing/find overloads.
+- (JA) Arduino 風の数値 `String` 連結、64bit 値の `Print` 出力 overload、追加の `Stream` parse / find overload を追加。
 
 ## 0.1.5
 - (EN) Expanded the host Arduino compatibility layer with Arduino-style `String`, `Print`, `Stream`, and `HardwareSerial` APIs.
