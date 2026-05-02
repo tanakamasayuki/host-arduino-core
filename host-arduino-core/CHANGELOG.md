@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+## 1.0.2
+- (EN) Added host-backed `FS.h`, `SPIFFS.h`, `LittleFS.h`, `FFat.h`, and `SD.h` compatibility with per-filesystem folders next to the executable.
+- (JA) 実行ファイル直下のファイルシステム別フォルダを使う `FS.h`、`SPIFFS.h`、`LittleFS.h`、`FFat.h`、`SD.h` 互換を追加。
+
 ## 1.0.1
-- (JA) -std指定を削除して、ビルド環境の標準バージョンに合わせる
 - (EN) Removed the -std flag to allow the build environment's default version to be used.
+- (JA) -std指定を削除して、ビルド環境の標準バージョンに合わせる
 
 ## 1.0.0
 - (EN) Added AVR-style `__FlashStringHelper` / `F()` compatibility plus `Print` overloads for flash strings.
