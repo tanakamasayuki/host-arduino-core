@@ -9,8 +9,8 @@ compiler.size.cmd=size
 compiler.ar.flags=rcs
 compiler.ar.extra_flags=
 
-compiler.c.flags=-std=gnu11 -O2 -Wall -ffunction-sections -fdata-sections
-compiler.cxx.flags=-std=gnu++11 -O2 -Wall -ffunction-sections -fdata-sections
+compiler.c.flags=-O2 -Wall -ffunction-sections -fdata-sections
+compiler.cxx.flags=-O2 -Wall -ffunction-sections -fdata-sections
 compiler.ldflags=
 build.extra_flags=-DARDUINO=10819 -DHOST_ARDUINO=1
 

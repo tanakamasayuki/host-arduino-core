@@ -12,30 +12,6 @@
         {
           "name": "Host Arduino Core",
           "architecture": "host",
-          "version": "0.1.0",
-          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.0/host-arduino-core-0.1.0.zip",
-          "archiveFileName": "host-arduino-core-0.1.0.zip",
-          "checksum": "SHA-256:fb0e47873bc38b1cfb7fab2f7f0f695fbdbdc7da9e6d6dd5f397f0eb2d9e9f74"
-        },
-        {
-          "name": "Host Arduino Core",
-          "architecture": "host",
-          "version": "0.1.2",
-          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.2/host-arduino-core-0.1.2.zip",
-          "archiveFileName": "host-arduino-core-0.1.2.zip",
-          "checksum": "SHA-256:27961bcb546b16ea206ff68166b7c86266045c95e88a3c32b04a7bf770ee2f6d"
-        },
-        {
-          "name": "Host Arduino Core",
-          "architecture": "host",
-          "version": "0.1.3",
-          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.3/host-arduino-core-0.1.3.zip",
-          "archiveFileName": "host-arduino-core-0.1.3.zip",
-          "checksum": "SHA-256:227d12a311cba84062bc1210c17d655a5e7cdbe2e8757b2e0d3580153146c2f4"
-        },
-        {
-          "name": "Host Arduino Core",
-          "architecture": "host",
           "version": "0.1.4",
           "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v0.1.4/host-arduino-core-0.1.4.zip",
           "archiveFileName": "host-arduino-core-0.1.4.zip",
@@ -56,6 +32,14 @@
           "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v1.0.0/host-arduino-core-1.0.0.zip",
           "archiveFileName": "host-arduino-core-1.0.0.zip",
           "checksum": "SHA-256:e1d235dbc6308030c1bc529717b91f23c837cd5d50fb35566c82a2cda134e4f1"
+        },
+        {
+          "name": "Host Arduino Core",
+          "architecture": "host",
+          "version": "1.0.1",
+          "url": "https://github.com/tanakamasayuki/host-arduino-core/releases/download/v1.0.1/host-arduino-core-1.0.1.zip",
+          "archiveFileName": "host-arduino-core-1.0.1.zip",
+          "checksum": "SHA-256:f584016c0305ad85183c5ff307c3cb4949dad6f5c768c51d9c770c5f9ca8a83b"
         }
       ],
       "tools": []
