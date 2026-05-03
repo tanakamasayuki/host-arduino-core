@@ -1,6 +1,10 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Removed -DARDUINO.
+- (JA) -DARDUINOを削除
+- (EN) Added SDL2 to the menu.
+- (JA) SDL2をメニューに追加
 
 ## 1.0.2
 - (EN) Added host-backed `FS.h`, `SPIFFS.h`, `LittleFS.h`, `FFat.h`, and `SD.h` compatibility with per-filesystem folders next to the executable.
