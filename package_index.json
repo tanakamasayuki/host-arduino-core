@@ -1,7 +1,7 @@
 {
   "packages": [
     {
-      "name": "lang-ship-host",
+      "name": "lang-ship",
       "maintainer": "tanakamasayuki",
       "websiteURL": "https://github.com/tanakamasayuki/host-arduino-core",
       "email": "",
