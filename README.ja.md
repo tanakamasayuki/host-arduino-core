@@ -2,6 +2,8 @@
 
 日本語 | English: [README.md](README.md)
 
+https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
+
 Arduino スケッチをホスト PC 上の実行ファイルとしてビルドし、`pytest-embedded-arduino-cli` などの Arduino CLI 対応ホスト側テストから制御するための最小構成 Arduino Core + Boards Manager パッケージです。
 
 これは実用的な Arduino 互換ボードではありません。実機、フラッシュ書き込み、シリアルポートに依存しない、純粋なスケッチ / ライブラリのロジック部分をテストするためのターゲットです。

@@ -2,6 +2,8 @@
 
 English | 日本語: [README.ja.md](README.ja.md)
 
+https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
+
 Minimal Arduino Core + Boards Manager package for building Arduino sketches as host executables and driving them from Arduino CLI based host-side tests such as `pytest-embedded-arduino-cli`.
 
 This is not a practical Arduino-compatible board. It is a test target for pure sketch/library logic that does not require real hardware, flashing, or a serial port.
