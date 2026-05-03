@@ -10,7 +10,9 @@ host.upload.protocol=run
 host.menu.arduino=enabled
 host.menu.arduino.enabled=Enabled
 host.menu.arduino.disabled=Disabled
+host.menu.arduino.enabled.build.core=host
 host.menu.arduino.enabled.build.extra_flags_arduino=-DARDUINO
+host.menu.arduino.disabled.build.core=host_noarduino
 host.menu.arduino.disabled.build.extra_flags_arduino=
 
 host.menu.sdl2=disabled
