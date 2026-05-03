@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.0.4
 - (EN) Added an option to disable Arduino compatibility
 - (JA) Arduinoを無効にできるように
 
