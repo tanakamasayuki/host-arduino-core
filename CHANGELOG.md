@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.0.3
 - (EN) Removed -DARDUINO.
 - (JA) -DARDUINOを削除
 - (EN) Added SDL2 to the menu.
