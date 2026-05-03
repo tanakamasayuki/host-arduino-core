@@ -1,3 +1,4 @@
+menu.arduino=Arduino
 menu.sdl2=SDL2
 
 host.name=Host
@@ -5,6 +6,13 @@ host.build.core=host
 host.build.board=HOST
 host.upload.tool.default=run
 host.upload.protocol=run
+
+host.menu.arduino=enabled
+host.menu.arduino.enabled=Enabled
+host.menu.arduino.disabled=Disabled
+host.menu.arduino.enabled.build.extra_flags_arduino=-DARDUINO
+host.menu.arduino.disabled.build.extra_flags_arduino=
+
 host.menu.sdl2=disabled
 host.menu.sdl2.disabled=Disabled
 host.menu.sdl2.enabled=Enabled
