@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Added a main function for when Arduino compatibility is disabled
+- (JA) Arduinoを無効時のmain関数追加
 
 ## 1.0.4
 - (EN) Added an option to disable Arduino compatibility
