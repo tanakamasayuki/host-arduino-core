@@ -183,6 +183,14 @@ Example:
 
 The runtime is designed for one test client per executable process. Multiple simultaneous TCP clients are not a requirement.
 
+## File Paths
+
+`SD.h`, `SPIFFS.h`, `LittleFS.h`, and `FFat.h` are mapped to host-side folders. Each filesystem root is placed next to the executable as `SD/`, `SPIFFS/`, `LittleFS/`, or `FFat/`. For example, `SD.open("/data.txt", FILE_WRITE)` opens `SD/data.txt` next to the executable.
+
+These folders live under the build output location, so tests that need read fixtures should copy them into `SD/` or the relevant filesystem folder at the start of the test.
+
+Direct `fopen()` calls from a sketch do not use this mapping. They follow the normal host C runtime behavior and resolve relative paths from the process current working directory. When launched from pytest, this is usually the directory containing `test.py`, so test folders such as `input/` and `output/` can be used directly. If you want direct `fopen()` paths to resolve next to the executable, change the current working directory from the test before or while launching the process.
+
 ## Runtime Environment Variables
 
 - `HOST_ARDUINO_CONNECT_TIMEOUT_MS`: child process timeout while waiting for the first TCP client. Default: `10000`.
