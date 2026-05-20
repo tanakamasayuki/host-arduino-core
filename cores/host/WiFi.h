@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "IPAddress.h"
+#include "WString.h"
 #include "WiFiUdp.h"
 
 enum WiFiMode_t
@@ -33,14 +34,34 @@ enum wl_status_t
 class WiFiClass
 {
 public:
-    wl_status_t begin(const char * = nullptr, const char * = nullptr) { return WL_CONNECTED; }
-    bool mode(WiFiMode_t) { return true; }
-    bool disconnect(bool = false) { return true; }
-    wl_status_t status() { return WL_CONNECTED; }
-    IPAddress localIP() { return IPAddress(127, 0, 0, 1); }
+    wl_status_t begin(const char *ssid = nullptr, const char * = nullptr)
+    {
+        ssid_ = ssid ? ssid : "";
+        status_ = WL_CONNECTED;
+        return status_;
+    }
+    bool mode(WiFiMode_t m)
+    {
+        mode_ = m;
+        if (m == WIFI_OFF) status_ = WL_IDLE_STATUS;
+        return true;
+    }
+    bool disconnect(bool = false)
+    {
+        status_ = WL_DISCONNECTED;
+        ssid_ = "";
+        return true;
+    }
+    wl_status_t status() { return status_; }
+    IPAddress localIP() { return status_ == WL_CONNECTED ? IPAddress(127, 0, 0, 1) : IPAddress(0, 0, 0, 0); }
     IPAddress softAPIP() { return IPAddress(127, 0, 0, 1); }
-    const char *SSID() { return ""; }
+    const char *SSID() { return ssid_.c_str(); }
     int32_t RSSI() { return 0; }
+
+private:
+    wl_status_t status_ = WL_IDLE_STATUS;
+    WiFiMode_t mode_ = WIFI_STA;
+    String ssid_;
 };
 
 extern WiFiClass WiFi;
