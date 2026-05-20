@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 1.0.6
+- (EN) Added `IPAddress`, abstract `UDP`, `WiFiUDP`, and a state-tracked `WiFi` stub so ESP32-style sketches can build and run on host.
+- (JA) `IPAddress`、抽象 `UDP`、`WiFiUDP`、状態を追跡する `WiFi` スタブを追加し、ESP32 向けスケッチを host でビルド・実行できるように。
+- (EN) `WiFiUDP::begin` enables `SO_BROADCAST` so sends to `255.255.255.255` succeed on Linux.
+- (JA) `WiFiUDP::begin` で `SO_BROADCAST` を有効化し、Linux でも `255.255.255.255` への送信が成功するように。
+- (EN) Added `WiFiUDP::lastError()` and `localPort()`; receive buffer raised to 65535 B for jumbo UDP frames.
+- (JA) `WiFiUDP::lastError()` と `localPort()` を追加。受信バッファを 65535 B に拡大し、jumbo UDP フレームに対応。
+- (EN) Added `tests/` directory using `pytest-embedded-arduino-cli` with categories `runtime/` `storage/` `network/`; symlinks the repo into the sketchbook automatically for the duration of the run.
+- (JA) `pytest-embedded-arduino-cli` を使う `tests/` を `runtime/` `storage/` `network/` のカテゴリで追加。実行中はリポジトリを sketchbook へ自動 symlink。
+- (EN) Added `docs/roadmap.md` / `docs/roadmap.ja.md` with an API support matrix.
+- (JA) API サポート状況マトリックスを記載した `docs/roadmap.md` / `docs/roadmap.ja.md` を追加。
+
 ## 1.0.5
 - (EN) Added a main function for when Arduino compatibility is disabled
 - (JA) Arduinoを無効時のmain関数追加

@@ -47,6 +47,7 @@ lang-ship:host:host
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
 - `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
+- `docs/roadmap.md` / `docs/roadmap.ja.md`: API サポート状況マトリックス（実装済み / スタブ / 計画中 / 対象外）。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
 ## 事前準備
@@ -182,6 +183,14 @@ macOS の `g++` は実体が Apple clang のことがありますが、GCC 互�
 ```
 
 ランタイムは 1 つの実行プロセスに対して 1 つのテストクライアント接続を想定しています。複数クライアントの同時接続は必須要件ではありません。
+
+## ファイルパス
+
+`SD.h`、`SPIFFS.h`、`LittleFS.h`、`FFat.h` はホスト上のフォルダにマップされます。各ファイルシステムのルートは実行ファイルと同じ場所の `SD/`、`SPIFFS/`、`LittleFS/`、`FFat/` です。例えば `SD.open("/data.txt", FILE_WRITE)` は、実行ファイル横の `SD/data.txt` を開きます。
+
+これらのフォルダはビルド成果物の場所に作られるため、読み込み用の fixture が必要な場合は、テスト開始時に `SD/` などへコピーしてください。
+
+スケッチから直接 `fopen()` を使った場合は、このマッピングを通らず、通常のホスト C ランタイムと同じくプロセスのカレントディレクトリ基準になります。pytest から起動する場合は、通常 `test.py` のあるディレクトリをカレントにして実行されるため、`input/` や `output/` のようなテスト用フォルダを置いて扱えます。実行ファイル横に揃えたい場合は、テスト側で起動前または起動時にカレントディレクトリを変更してください。
 
 ## ランタイム環境変数
 
