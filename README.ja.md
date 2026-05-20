@@ -47,6 +47,7 @@ lang-ship:host:host
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
 - `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
+- `docs/roadmap.md` / `docs/roadmap.ja.md`: API サポート状況マトリックス（実装済み / スタブ / 計画中 / 対象外）。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
 ## 事前準備
