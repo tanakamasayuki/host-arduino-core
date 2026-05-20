@@ -43,6 +43,6 @@ public:
     int32_t RSSI() { return 0; }
 };
 
-static WiFiClass WiFi;
+extern WiFiClass WiFi;
 
 #endif
