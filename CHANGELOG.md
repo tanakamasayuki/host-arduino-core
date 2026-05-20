@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.0.6
 - (EN) Added `IPAddress`, abstract `UDP`, `WiFiUDP`, and a state-tracked `WiFi` stub so ESP32-style sketches can build and run on host.
 - (JA) `IPAddress`、抽象 `UDP`、`WiFiUDP`、状態を追跡する `WiFi` スタブを追加し、ESP32 向けスケッチを host でビルド・実行できるように。
 - (EN) `WiFiUDP::begin` enables `SO_BROADCAST` so sends to `255.255.255.255` succeed on Linux.
