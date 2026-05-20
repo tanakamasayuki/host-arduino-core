@@ -53,7 +53,7 @@ host 側で Arduino スケッチをテストするにあたって、本コアで
 |-----|------|------|
 | `IPAddress` | ✅ | Arduino 互換の API 一式 |
 | `UDP`（抽象） | ✅ | `cores/host/Udp.h` |
-| `WiFiUDP` | ✅ | POSIX / Winsock 実装 |
+| `WiFiUDP` | ✅ | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化 |
 | `WiFi` ファサード | 🟡 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
 | `Client` / `Server`（抽象） | 🔲 | TCP 実装の前提 |
 | `WiFiClient`（TCP） | 🔲 | POSIX socket で実装可能、概算 250 行 |
@@ -104,7 +104,7 @@ host 側で Arduino スケッチをテストするにあたって、本コアで
 tests/
   runtime/  smoke, timing, print_api
   storage/  fs
-  network/  udp_recv, udp_echo, wifi
+  network/  udp_recv, udp_echo, udp_broadcast, wifi
 ```
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい

@@ -52,7 +52,7 @@ without becoming a different project.
 |-----|--------|-------|
 | `IPAddress` | ✅ | full Arduino-compatible API |
 | `UDP` abstract | ✅ | `cores/host/Udp.h` |
-| `WiFiUDP` | ✅ | POSIX / Winsock backed |
+| `WiFiUDP` | ✅ | POSIX / Winsock backed; `SO_BROADCAST` enabled by default |
 | `WiFi` facade | 🟡 | state-tracked stub (`begin` → `WL_CONNECTED`, `disconnect` → `WL_DISCONNECTED`). No real association, no scan |
 | `Client` / `Server` abstract | 🔲 | needed before TCP impls |
 | `WiFiClient` (TCP) | 🔲 | doable on POSIX sockets, ~250 LOC |
@@ -103,7 +103,7 @@ behavioral coverage:
 tests/
   runtime/  smoke, timing, print_api
   storage/  fs
-  network/  udp_recv, udp_echo, wifi
+  network/  udp_recv, udp_echo, udp_broadcast, wifi
 ```
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a

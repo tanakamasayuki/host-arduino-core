@@ -45,6 +45,7 @@ public:
 
         int one = 1;
         ::setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&one, sizeof(one));
+        ::setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, (const char *)&one, sizeof(one));
 
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
