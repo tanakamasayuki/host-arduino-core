@@ -4,9 +4,17 @@ English | 日本語: [README.ja.md](README.ja.md)
 
 Local tests for `host-arduino-core`, built on
 [`pytest-embedded-arduino-cli`](https://pypi.org/project/pytest-embedded-arduino-cli/).
-Each subdirectory under `tests/` is one test target (sketch + `sketch.yaml`
-+ `test_*.py`). `smoke/` is the minimal build-and-boot check; add more
-alongside it as needed.
+Tests are grouped by area:
+
+```
+tests/
+  runtime/   # smoke, timing, print_api — Arduino runtime basics
+  storage/   # fs — LittleFS/SPIFFS/FFat/SD facades
+  network/   # udp_recv, udp_echo — IPAddress / UDP / WiFiUDP
+```
+
+Each leaf directory is one test target (sketch + `sketch.yaml` +
+`test_*.py`). Add new categories by creating new top-level directories.
 
 ## Setup
 
@@ -59,8 +67,10 @@ e.g.:
 ## Add a new test
 
 ```
-tests/<name>/
+tests/<category>/<name>/
   <name>.ino
-  sketch.yaml      # copy from smoke/sketch.yaml
+  sketch.yaml      # copy from any existing test
   test_<name>.py   # uses the `dut` fixture
 ```
+
+The `.ino` filename must match the directory name (arduino-cli convention).

@@ -4,10 +4,18 @@ English: [README.md](README.md)
 
 `host-arduino-core` のローカルテスト一式です。
 [`pytest-embedded-arduino-cli`](https://pypi.org/project/pytest-embedded-arduino-cli/)
-の上に作られています。`tests/` 直下の各サブディレクトリが 1 つのテスト対
-象（スケッチ + `sketch.yaml` + `test_*.py`）に対応します。`smoke/` は最
-小限のビルド・起動確認用で、必要に応じて同じ形式でテストを追加していきま
-す。
+の上に作られています。テストは分野ごとにグルーピングされています：
+
+```
+tests/
+  runtime/   # smoke, timing, print_api — Arduino ランタイム基本機能
+  storage/   # fs — LittleFS / SPIFFS / FFat / SD ファサード
+  network/   # udp_recv, udp_echo — IPAddress / UDP / WiFiUDP
+```
+
+各リーフディレクトリが 1 つのテスト対象（スケッチ + `sketch.yaml` +
+`test_*.py`）です。新しい分野を増やすときはトップレベルに新しいディレク
+トリを作ってください。
 
 ## セットアップ
 
@@ -62,8 +70,10 @@ URL を戻します：
 ## 新しいテストを追加する
 
 ```
-tests/<name>/
+tests/<category>/<name>/
   <name>.ino
-  sketch.yaml      # smoke/sketch.yaml をコピー
+  sketch.yaml      # 既存テストの sketch.yaml をコピー
   test_<name>.py   # `dut` fixture を利用
 ```
+
+`.ino` のファイル名はディレクトリ名と一致させる必要があります（arduino-cli の規約）。
