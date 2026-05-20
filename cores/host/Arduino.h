@@ -15,6 +15,7 @@ typedef uint16_t word;
 #include "Print.h"
 #include "Stream.h"
 #include "pgmspace.h"
+#include "IPAddress.h"
 
 #ifndef HIGH
 #define HIGH 0x1
