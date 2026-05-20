@@ -14,8 +14,10 @@ typedef int socklen_t_compat;
 #define HOST_CLOSESOCKET closesocket
 #define HOST_SOCKET_INVALID INVALID_SOCKET
 typedef SOCKET host_socket_t;
+inline int host_socket_errno() { return WSAGetLastError(); }
 #else
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -25,6 +27,7 @@ typedef SOCKET host_socket_t;
 #define HOST_CLOSESOCKET ::close
 #define HOST_SOCKET_INVALID (-1)
 typedef int host_socket_t;
+inline int host_socket_errno() { return errno; }
 #endif
 
 #include "IPAddress.h"
@@ -33,15 +36,19 @@ typedef int host_socket_t;
 class WiFiUDP : public UDP
 {
 public:
-    WiFiUDP() : sock_(HOST_SOCKET_INVALID), tx_port_(0), rx_pos_(0), remote_port_(0) {}
+    WiFiUDP() : sock_(HOST_SOCKET_INVALID), tx_port_(0), rx_pos_(0), remote_port_(0), last_error_(0) {}
     ~WiFiUDP() override { stop(); }
 
     uint8_t begin(uint16_t port) override
     {
         stop();
+        last_error_ = 0;
         sock_ = ::socket(AF_INET, SOCK_DGRAM, 0);
         if (sock_ == HOST_SOCKET_INVALID)
+        {
+            last_error_ = host_socket_errno();
             return 0;
+        }
 
         int one = 1;
         ::setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&one, sizeof(one));
@@ -53,6 +60,7 @@ public:
         addr.sin_port = htons(port);
         if (::bind(sock_, (sockaddr *)&addr, sizeof(addr)) != 0)
         {
+            last_error_ = host_socket_errno();
             HOST_CLOSESOCKET(sock_);
             sock_ = HOST_SOCKET_INVALID;
             return 0;
@@ -119,6 +127,8 @@ public:
         const ssize_t n = ::sendto(sock_, (const char *)tx_buf_.data(),
                                    tx_buf_.size(), 0,
                                    (sockaddr *)&tx_addr_, sizeof(tx_addr_));
+        if (n < 0)
+            last_error_ = host_socket_errno();
         tx_buf_.clear();
         return (n >= 0) ? 1 : 0;
     }
@@ -139,18 +149,22 @@ public:
     {
         if (sock_ == HOST_SOCKET_INVALID)
             return 0;
-        rx_buf_.clear();
         rx_pos_ = 0;
+        rx_buf_.resize(65535); // max UDP payload — kept allocated as a member
 
-        uint8_t tmp[2048];
         sockaddr_in from{};
         socklen_t fromlen = sizeof(from);
-        const ssize_t n = ::recvfrom(sock_, (char *)tmp, sizeof(tmp), 0,
+        const ssize_t n = ::recvfrom(sock_, (char *)rx_buf_.data(), rx_buf_.size(), 0,
                                      (sockaddr *)&from, &fromlen);
         if (n <= 0)
+        {
+            if (n < 0)
+                last_error_ = host_socket_errno();
+            rx_buf_.clear();
             return 0;
+        }
 
-        rx_buf_.assign(tmp, tmp + n);
+        rx_buf_.resize((size_t)n);
         memcpy(remote_ip_.raw_address(), &from.sin_addr.s_addr, 4);
         remote_port_ = ntohs(from.sin_port);
         return (int)rx_buf_.size();
@@ -196,6 +210,10 @@ public:
         return ntohs(addr.sin_port);
     }
 
+    // errno (POSIX) or WSAGetLastError() (Windows) from the most recent
+    // failed begin / endPacket / parsePacket. 0 means no error recorded.
+    int lastError() const { return last_error_; }
+
 private:
     static void set_nonblocking(host_socket_t s)
     {
@@ -217,6 +235,7 @@ private:
     size_t rx_pos_;
     IPAddress remote_ip_;
     uint16_t remote_port_;
+    int last_error_;
 };
 
 #endif

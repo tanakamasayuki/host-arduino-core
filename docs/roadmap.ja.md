@@ -53,7 +53,8 @@ host 側で Arduino スケッチをテストするにあたって、本コアで
 |-----|------|------|
 | `IPAddress` | ✅ | Arduino 互換の API 一式 |
 | `UDP`（抽象） | ✅ | `cores/host/Udp.h` |
-| `WiFiUDP` | ✅ | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化 |
+| `WiFiUDP` | ✅ | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化。`lastError()` で errno 取得可。受信バッファ 65535 B |
+| `WiFiUDP::beginMulticast` | 🔲 | 基底クラスのまま 0 を返す（参加していない）。VBAN 等で必要 |
 | `WiFi` ファサード | 🟡 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
 | `Client` / `Server`（抽象） | 🔲 | TCP 実装の前提 |
 | `WiFiClient`（TCP） | 🔲 | POSIX socket で実装可能、概算 250 行 |
