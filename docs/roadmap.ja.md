@@ -53,7 +53,7 @@ host 側で Arduino スケッチをテストするにあたって、本コアで
 |-----|------|------|
 | `IPAddress` | ✅ | Arduino 互換の API 一式 |
 | `UDP`（抽象） | ✅ | `cores/host/Udp.h` |
-| `WiFiUDP` | ✅ | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化。`lastError()` で errno 取得可。受信バッファ 65535 B |
+| `WiFiUDP` | ✅ | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化。`lastError()` で errno 取得可。受信バッファ 65535 B。パケット操作前に `begin(0)` 必須（ESP32 より厳格）。誤用時は `Serial` に `[HostCore]` ヒントを出力（`cores/host/HostDiag.h` 参照） |
 | `WiFiUDP::beginMulticast` | 🔲 | 基底クラスのまま 0 を返す（参加していない）。VBAN 等で必要 |
 | `WiFi` ファサード | 🟡 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
 | `Client` / `Server`（抽象） | 🔲 | TCP 実装の前提 |
@@ -105,7 +105,7 @@ host 側で Arduino スケッチをテストするにあたって、本コアで
 tests/
   runtime/  smoke, timing, print_api
   storage/  fs
-  network/  udp_recv, udp_echo, udp_broadcast, wifi
+  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi
 ```
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい

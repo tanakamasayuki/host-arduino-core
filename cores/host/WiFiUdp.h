@@ -1,6 +1,16 @@
 #ifndef HOST_ARDUINO_WIFIUDP_H
 #define HOST_ARDUINO_WIFIUDP_H
 
+// host-arduino-core WiFiUDP implementation.
+//
+// Important contract: callers MUST invoke `begin(0)` (or a fixed port)
+// before any `beginPacket()` / `endPacket()` / `parsePacket()`. ESP32's
+// `WiFiUDP` lazy-initialises the socket on first use; this host impl
+// follows the stricter Arduino contract instead. Calling a packet method
+// before begin() returns 0 silently — but `[HostCore]` hint lines are
+// emitted on `Serial` via `HOST_DIAG_ONCE` so the cause is debuggable
+// from `dut.expect()` and similar pytest checks.
+
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
@@ -30,6 +40,7 @@ typedef int host_socket_t;
 inline int host_socket_errno() { return errno; }
 #endif
 
+#include "HostDiag.h"
 #include "IPAddress.h"
 #include "Udp.h"
 
@@ -83,6 +94,11 @@ public:
 
     int beginPacket(IPAddress ip, uint16_t port) override
     {
+        if (sock_ == HOST_SOCKET_INVALID)
+        {
+            HOST_DIAG_ONCE("WiFiUDP::beginPacket() called before begin()? sock=-1");
+            return 0;
+        }
         tx_buf_.clear();
         tx_addr_ = sockaddr_in{};
         tx_addr_.sin_family = AF_INET;
@@ -96,6 +112,11 @@ public:
 
     int beginPacket(const char *host, uint16_t port) override
     {
+        if (sock_ == HOST_SOCKET_INVALID)
+        {
+            HOST_DIAG_ONCE("WiFiUDP::beginPacket(host) called before begin()? sock=-1");
+            return 0;
+        }
         if (!host)
             return 0;
         IPAddress ip;
@@ -123,12 +144,18 @@ public:
     int endPacket() override
     {
         if (sock_ == HOST_SOCKET_INVALID)
+        {
+            HOST_DIAG_ONCE("WiFiUDP::endPacket() called before begin()? sock=-1");
             return 0;
+        }
         const ssize_t n = ::sendto(sock_, (const char *)tx_buf_.data(),
                                    tx_buf_.size(), 0,
                                    (sockaddr *)&tx_addr_, sizeof(tx_addr_));
         if (n < 0)
+        {
             last_error_ = host_socket_errno();
+            HOST_DIAG_ONCE("WiFiUDP::endPacket() sendto failed; see lastError()");
+        }
         tx_buf_.clear();
         return (n >= 0) ? 1 : 0;
     }
@@ -148,7 +175,10 @@ public:
     int parsePacket() override
     {
         if (sock_ == HOST_SOCKET_INVALID)
+        {
+            HOST_DIAG_ONCE("WiFiUDP::parsePacket() called before begin()? sock=-1");
             return 0;
+        }
         rx_pos_ = 0;
         rx_buf_.resize(65535); // max UDP payload — kept allocated as a member
 
@@ -159,7 +189,17 @@ public:
         if (n <= 0)
         {
             if (n < 0)
-                last_error_ = host_socket_errno();
+            {
+                const int err = host_socket_errno();
+                last_error_ = err;
+#ifdef _WIN32
+                const bool benign = (err == WSAEWOULDBLOCK);
+#else
+                const bool benign = (err == EAGAIN || err == EWOULDBLOCK);
+#endif
+                if (!benign)
+                    HOST_DIAG_ONCE("WiFiUDP::parsePacket() recvfrom failed; see lastError()");
+            }
             rx_buf_.clear();
             return 0;
         }
