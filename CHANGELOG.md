@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.0.7
 - (EN) Added `HostDiag.h` with `HOST_DIAG_ONCE` for once-per-call-site `[HostCore]` hints over `Serial`. WiFiUDP emits hints when packet methods are called before `begin()` or when sendto / recvfrom fail; FS emits a hint when `File::open()` fails for write/append.
 - (JA) `HostDiag.h` を追加。`HOST_DIAG_ONCE` で呼び出しサイトごとに 1 回 `Serial` に `[HostCore]` ヒントを出力。WiFiUDP は `begin()` 前のパケット操作・sendto / recvfrom 失敗時に、FS は `File::open()` の書き込みモード失敗時にヒントを出力。
 
