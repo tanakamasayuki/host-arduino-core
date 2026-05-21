@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.0.7
+- (EN) Added `HostDiag.h` with `HOST_DIAG_ONCE` for once-per-call-site `[HostCore]` hints over `Serial`. WiFiUDP emits hints when packet methods are called before `begin()` or when sendto / recvfrom fail; FS emits a hint when `File::open()` fails for write/append.
+- (JA) `HostDiag.h` を追加。`HOST_DIAG_ONCE` で呼び出しサイトごとに 1 回 `Serial` に `[HostCore]` ヒントを出力。WiFiUDP は `begin()` 前のパケット操作・sendto / recvfrom 失敗時に、FS は `File::open()` の書き込みモード失敗時にヒントを出力。
+
 ## 1.0.6
 - (EN) Added `IPAddress`, abstract `UDP`, `WiFiUDP`, and a state-tracked `WiFi` stub so ESP32-style sketches can build and run on host.
 - (JA) `IPAddress`、抽象 `UDP`、`WiFiUDP`、状態を追跡する `WiFi` スタブを追加し、ESP32 向けスケッチを host でビルド・実行できるように。
