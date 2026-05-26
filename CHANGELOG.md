@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.1.0
 - (EN) Added `examples/TLSProbe` — a user-facing sketch that compiles in both `tls=disabled` and `tls=openssl` modes, prints compile-time and runtime OpenSSL versions, exercises `SSL_CTX_new`, and emits `PROBE_RESULT=PASS|FAIL`. Intended for Windows / macOS users to validate the `tls=openssl` board menu on platforms not yet covered by CI.
 - (JA) `examples/TLSProbe` を追加。`tls=disabled` / `tls=openssl` のどちらでもビルドでき、コンパイル時と実行時の OpenSSL バージョンを表示し、`SSL_CTX_new` を呼び、`PROBE_RESULT=PASS|FAIL` を出力。Windows / macOS ユーザが `tls=openssl` メニューを各自の環境で検証するために用意。
 - (EN) Release ZIP now bundles `examples/` (previously only `cores/`, `libraries/`, board metadata, and docs were shipped), so Boards Manager users can open the included sketches directly from the Arduino IDE.
