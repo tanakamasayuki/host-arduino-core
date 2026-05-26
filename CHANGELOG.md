@@ -1,6 +1,10 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Added a `tls` board menu option. Default is `disabled` (no change in behavior). Selecting `tls=openssl` adds `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` so sketches can call into OpenSSL. Verified on Linux with `libssl-dev` (3.0.x). Windows MSYS2 should work with the same flags but is untested; macOS is out of scope for this minimal pass (requires `-I` / `-L` to Homebrew paths).
+- (JA) ボードメニューに `tls` を追加。デフォルトは `disabled` で動作変更なし。`tls=openssl` を選ぶと `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` が付与され、スケッチから OpenSSL を呼べる。Linux + `libssl-dev` (3.0.x) で動作確認済。Windows MSYS2 も同フラグで動く想定だが未検証、macOS は本最小実装では対象外（Homebrew パスへの `-I` / `-L` 解決が必要）。
+- (EN) Added `tests/network/tls_openssl` probe sketch that reports compile-time and runtime OpenSSL versions and exercises `SSL_CTX_new` / `SSL_CTX_free` to confirm linkage.
+- (JA) `tests/network/tls_openssl` を追加。コンパイル時と実行時の OpenSSL バージョンを表示し、`SSL_CTX_new` / `SSL_CTX_free` を呼んでリンクが解決していることを確認。
 - (EN) Added abstract `Client` and `Server` base classes, plus `WiFiClient` (TCP) and `WiFiServer` (TCP) host implementations. `WiFiClient` shares its socket state via `shared_ptr` so values returned from `WiFiServer::available()` behave correctly when copied. Both classes expose `lastError()` and emit `[HostCore]` diagnostic hints via `HostDiag` on misuse. Extracted shared POSIX/Winsock helpers into `cores/host/HostSocket.h` (used by `WiFiUDP`, `WiFiClient`, `WiFiServer`).
 - (JA) 抽象基底 `Client` と `Server` を追加し、host 向け TCP 実装として `WiFiClient` と `WiFiServer` を追加。`WiFiClient` は `shared_ptr` でソケット状態を共有するため、`WiFiServer::available()` の戻り値を値コピーしても正しく動作。両クラスとも `lastError()` を公開し、誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力。POSIX / Winsock 共通ヘルパを `cores/host/HostSocket.h` に集約（`WiFiUDP` / `WiFiClient` / `WiFiServer` で共有）。
 - (EN) Added `tests/network/tcp_echo` (sketch as TCP server) and `tests/network/tcp_client` (sketch as TCP client) to cover the new classes end-to-end.
