@@ -20,6 +20,133 @@ Arduino スケッチをホスト PC 上の実行ファイルとしてビルド�
 - リリース ZIP と `package_index.json` は GitHub Pages で公開します:
   `https://tanakamasayuki.github.io/host-arduino-core/package_index.json`
 
+## API サポート状況
+
+ベースは ESP32 系ボードを想定していますが、可能な限り Arduino Core API に
+準拠することを目標としており、どちらの API 面で書かれたスケッチもホスト上
+で動かせることを目指します。「出自」列は、その API が Arduino Core 標準か
+ESP32 拡張かを示します。
+
+凡例:
+- ✅ 実装済み・`tests/` でテスト済み
+- 🟡 スタブのみ（コンパイル・リンクは通るが、中身は何もしない）
+- 🔲 未実装・コントリビューション歓迎
+- ⛔ 対象外（このコアでは実装しない）
+
+### ランタイム / 言語
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp` |
+| `millis` / `micros` | ✅ | Arduino | `std::chrono::steady_clock` |
+| `delay` / `delayMicroseconds` | ✅ | Arduino | `std::this_thread::sleep_for` |
+| `yield` | ✅ | Arduino | no-op |
+| `min` / `max` / `constrain` / `map` / `abs` | ✅ | Arduino | ヘッダオンリー |
+| `random` / `randomSeed` | ✅ | Arduino | `std::rand` のラッパ |
+| `bit*` / `lowByte` / `highByte` / `_BV` | ✅ | Arduino | マクロ |
+| `String`（`WString.h`） | ✅ | Arduino | |
+
+### Print / Stream / Serial
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| `Print`（int / hex / bin / float / String / bool） | ✅ | Arduino | Arduino のフォーマットに準拠 |
+| `Printable` | ✅ | Arduino | |
+| `Stream`（`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`） | ✅ | Arduino | |
+| `HardwareSerial` / `Serial` | ✅ | Arduino | localhost の TCP ソケット越しに公開 |
+| `Serial1` / `Serial2` | 🔲 | ESP32 | 複数 UART を同時に使うスケッチが現れたら |
+
+### ファイルシステム
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| `FS` / `File`（read / write / seek / size / openNextFile） | ✅ | Arduino | `<cstdio>` ラッパ |
+| `LittleFS` / `SPIFFS` / `FFat` / `SD` | ✅ | ESP32 | すべて実行ファイル隣のディレクトリにマップ。フラッシュ容量制限やフォーマット意味論は再現しない |
+| `Preferences`（NVS） | 🔲 | ESP32 | 実行ファイル隣のファイルでバックアップ可能 |
+| `EEPROM` | 🔲 | Arduino | `Preferences` と同じ方針 |
+
+### ネットワーク
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| `IPAddress` | ✅ | Arduino | Arduino 互換の API 一式 |
+| `UDP`（抽象） | ✅ | Arduino | `cores/host/Udp.h` |
+| `WiFiUDP`（ユニキャスト + ブロードキャスト） | ✅ | ESP32 | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化。`lastError()` で errno 取得可。受信バッファ 65535 B。パケット操作前に `begin(0)` 必須（ESP32 より厳格）。誤用時は `Serial` に `[HostCore]` ヒントを出力（`cores/host/HostDiag.h` 参照） |
+| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | 基底クラスのまま 0 を返す（参加していない）。VBAN 等で必要 |
+| `WiFi` ファサード（`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`） | 🟡 | ESP32 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
+| `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | スタブで 0 返却が妥当 |
+| `WiFi.softAP*`（実 AP 化） | 🟡 | ESP32 | `softAPIP()` のみ。実 AP 化は不可 |
+| `Client` / `Server`（抽象） | 🔲 | Arduino | TCP 実装の前提 |
+| `WiFiClient`（TCP） | 🔲 | Arduino / ESP32 | POSIX socket で実装可能、概算 250 行 |
+| `WiFiServer`（TCP） | 🔲 | Arduino / ESP32 | POSIX socket で実装可能、概算 120 行 |
+| `WiFiClientSecure`（TLS） | ⛔ | ESP32 | mbedTLS / OpenSSL 依存が必要、本コアでは対象外 |
+| `HTTPClient` | ⛔ | ESP32 | `Client` の上に別ライブラリとして作るのが適切 |
+| `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | 同上（`Server` の上の別ライブラリ） |
+| `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | 優先度低 |
+| `Ping` / `NetworkInterface` | 🔲 | ESP32 | 優先度低 |
+| Ethernet（`ETH`） | 🔲 | ESP32 | host では `WiFi` と区別する意味が薄い |
+
+### ハードウェア I/O（意図的にスタブ化）
+
+ハードウェアに依存する API は「実機向けスケッチが少なくともリンクできる」
+ことを目的にスタブ化しています。ピンの状態が結果に影響するテストは、
+スケッチ層でモックする想定です。
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| `pinMode` / `digitalWrite` / `digitalRead` | 🟡 | Arduino | no-op、`digitalRead` は `0` を返す |
+| `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op |
+| `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | `0` を返す |
+| `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
+| `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op |
+| `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op スタブで十分 |
+| `Wire`（I²C） | 🔲 | Arduino | 「初期化成功・デバイス無し」スタブの方針 |
+| `SPI` | 🔲 | Arduino | `Wire` と同じ方針 |
+| `Servo` | 🔲 | Arduino | no-op スタブ |
+
+### ESP-IDF / ベンダー拡張
+
+| API | 状況 | 出自 | 備考 |
+|-----|------|------|------|
+| FreeRTOS（`xTaskCreate`、キュー、セマフォ、ミューテックス） | ⛔ | ESP-IDF | 対象外。RTOS のスケジューリングに依存するスケッチは host テスト向きではない |
+| `esp_log` / `log_e` / `log_i` / `log_w` / `log_d` マクロ | 🔲 | ESP-IDF | `Serial` にルーティングは可能 |
+| `esp_timer` | 🔲 | ESP-IDF | `millis` / `micros` の薄いラッパで対応可 |
+| `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | 簡単 |
+| `Preferences`（NVS） | 🔲 | ESP32 | ファイルシステム節を参照 |
+| 生の `nvs_flash_*` API | ⛔ | ESP-IDF | `Preferences` 経由で十分 |
+| `Update` / OTA | ⛔ | ESP32 | host では意味が無い |
+| BLE / Classic Bluetooth | ⛔ | ESP32 | 予定無し |
+| ESP-NOW | 🔲 | ESP32 | UDP ブロードキャストで擬似可能だが優先度低 |
+| Camera（`esp_camera`） | ⛔ | ESP32 | 対象外 |
+
+### グラフィックス / ディスプレイ
+
+| API | 状況 | 備考 |
+|-----|------|------|
+| M5GFX フレームバッファモード + 画面キャプチャ | 🔲 | フレームバッファに描画し、画像ファイルとして保存（`TODO.md` 参照） |
+| LovyanGFX / TFT_eSPI | 🔲 | M5GFX と同じ方針 |
+
+### 「Planned」の意味
+
+🔲 の項目には予定日はありません。具体的なスケッチが必要として声を上げた
+時点でピックアップします。該当するスケッチがある場合、必要な API 表面を
+記述した issue が最も有用なコントリビューションです。
+
+### テストされている範囲
+
+上記マトリックスは「API の存在」、`tests/` 配下は「振る舞いのカバレッジ」
+を表します:
+
+```
+tests/
+  runtime/  smoke, timing, print_api
+  storage/  fs
+  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi
+```
+
+各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい
+テストを追加するとマトリックスの 1 マスが緑になっていきます。
+
 ## ボード
 
 初期版で提供するボードは 1 つだけです。
@@ -47,7 +174,6 @@ lang-ship:host:host
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
 - `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
-- `docs/roadmap.md` / `docs/roadmap.ja.md`: API サポート状況マトリックス（実装済み / スタブ / 計画中 / 対象外）。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
 ## 事前準備

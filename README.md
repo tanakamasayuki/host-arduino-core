@@ -20,6 +20,133 @@ This is not a practical Arduino-compatible board. It is a test target for pure s
 - Releases are published as `host-arduino-core-<version>.zip` and indexed via `package_index.json`, served from GitHub Pages:
   `https://tanakamasayuki.github.io/host-arduino-core/package_index.json`
 
+## API Support
+
+The base assumption is ESP32-class boards, but the goal is to track the Arduino
+Core API as closely as possible so sketches written against either surface can
+be exercised on the host. "Source" indicates whether the API is part of the
+Arduino Core standard or an ESP32 extension.
+
+Legend:
+- ✅ Implemented and exercised by tests under `tests/`
+- 🟡 Stub — compiles and links, but the body does nothing meaningful
+- 🔲 Planned / open for contribution
+- ⛔ Out of scope — won't be implemented in this core
+
+### Runtime / language
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp` |
+| `millis` / `micros` | ✅ | Arduino | `std::chrono::steady_clock` |
+| `delay` / `delayMicroseconds` | ✅ | Arduino | `std::this_thread::sleep_for` |
+| `yield` | ✅ | Arduino | no-op |
+| `min` / `max` / `constrain` / `map` / `abs` | ✅ | Arduino | header-only |
+| `random` / `randomSeed` | ✅ | Arduino | wraps `std::rand` |
+| `bit*` / `lowByte` / `highByte` / `_BV` | ✅ | Arduino | macros |
+| `String` (`WString.h`) | ✅ | Arduino | |
+
+### Print / Stream / Serial
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| `Print` (int / hex / bin / float / String / bool) | ✅ | Arduino | matches Arduino formatting |
+| `Printable` | ✅ | Arduino | |
+| `Stream` (`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`) | ✅ | Arduino | |
+| `HardwareSerial` / `Serial` | ✅ | Arduino | exposed over a localhost TCP socket |
+| `Serial1` / `Serial2` | 🔲 | ESP32 | only needed for sketches that drive multiple UARTs |
+
+### Filesystem
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| `FS` / `File` (read / write / seek / size / openNextFile) | ✅ | Arduino | wraps `<cstdio>` |
+| `LittleFS` / `SPIFFS` / `FFat` / `SD` | ✅ | ESP32 | all backed by a directory next to the executable; no flash quotas / format semantics |
+| `Preferences` (NVS) | 🔲 | ESP32 | could be backed by a file next to the executable |
+| `EEPROM` | 🔲 | Arduino | same approach as `Preferences` |
+
+### Networking
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| `IPAddress` | ✅ | Arduino | full Arduino-compatible API |
+| `UDP` (abstract) | ✅ | Arduino | `cores/host/Udp.h` |
+| `WiFiUDP` (unicast + broadcast) | ✅ | ESP32 | POSIX / Winsock backed; `SO_BROADCAST` enabled by default; `lastError()` exposes errno; rx buffer 65535 B. Requires `begin(0)` before any packet op (ESP32 is more lenient). Misuse emits `[HostCore]` hints over `Serial` (see `cores/host/HostDiag.h`) |
+| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | base returns 0 (not joined). Needed for protocols like VBAN |
+| `WiFi` facade (`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`) | 🟡 | ESP32 | state-tracked stub (`begin` → `WL_CONNECTED`, `disconnect` → `WL_DISCONNECTED`). No real association, no scan |
+| `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | stub returning 0 would be sufficient |
+| `WiFi.softAP*` (real AP) | 🟡 | ESP32 | `softAPIP()` only; cannot become a real AP |
+| `Client` / `Server` (abstract) | 🔲 | Arduino | prerequisite for any TCP impl |
+| `WiFiClient` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~250 LOC |
+| `WiFiServer` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~120 LOC |
+| `WiFiClientSecure` (TLS) | ⛔ | ESP32 | would need mbedTLS / OpenSSL — out of scope here |
+| `HTTPClient` | ⛔ | ESP32 | belongs in a separate library on top of `Client` |
+| `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
+| `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | low priority |
+| `Ping` / `NetworkInterface` | 🔲 | ESP32 | low priority |
+| Ethernet (`ETH`) | 🔲 | ESP32 | on the host there is no real distinction from `WiFi` |
+
+### Hardware I/O (intentionally stubbed)
+
+These are stubbed so that real-hardware sketches at least link. Tests that
+care about pin state should mock at the sketch layer.
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| `pinMode` / `digitalWrite` / `digitalRead` | 🟡 | Arduino | no-op stubs; `digitalRead` returns `0` |
+| `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op stubs |
+| `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | returns `0` |
+| `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
+| `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op stubs |
+| `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op stubs would be sufficient |
+| `Wire` (I²C) | 🔲 | Arduino | "init succeeds, no device present" stub is the planned shape |
+| `SPI` | 🔲 | Arduino | same shape as `Wire` |
+| `Servo` | 🔲 | Arduino | no-op stub |
+
+### ESP-IDF / vendor extensions
+
+| API | Status | Source | Notes |
+|-----|--------|--------|-------|
+| FreeRTOS (`xTaskCreate`, queues, semaphores, mutexes) | ⛔ | ESP-IDF | out of scope; sketches that depend on RTOS scheduling should not be tested on host |
+| `esp_log` / `log_e` / `log_i` / `log_w` / `log_d` macros | 🔲 | ESP-IDF | could route to `Serial` |
+| `esp_timer` | 🔲 | ESP-IDF | thin wrapper over `millis` / `micros` |
+| `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | trivial |
+| `Preferences` (NVS) | 🔲 | ESP32 | see Filesystem row |
+| Raw `nvs_flash_*` API | ⛔ | ESP-IDF | use `Preferences` instead |
+| `Update` / OTA | ⛔ | ESP32 | meaningless on host |
+| BLE / Classic Bluetooth | ⛔ | ESP32 | no plan |
+| ESP-NOW | 🔲 | ESP32 | could be faked over UDP broadcast, but low priority |
+| Camera (`esp_camera`) | ⛔ | ESP32 | out of scope |
+
+### Graphics / Display
+
+| API | Status | Notes |
+|-----|--------|-------|
+| M5GFX framebuffer mode + screen capture | 🔲 | draw to a framebuffer and persist as an image file (see `TODO.md`) |
+| LovyanGFX / TFT_eSPI | 🔲 | same approach as M5GFX |
+
+### What "Planned" actually means
+
+`🔲 Planned` items have no schedule. They are open for contribution and
+will be picked up when a concrete sketch needs them. If you have such a
+sketch, an issue describing the API surface it touches is the most useful
+contribution.
+
+### What's tested
+
+The matrix above tracks API existence; the `tests/` directory tracks
+behavioral coverage:
+
+```
+tests/
+  runtime/  smoke, timing, print_api
+  storage/  fs
+  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi
+```
+
+Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
+square in the matrix goes green.
+
 ## Board
 
 The initial package provides a single board:
@@ -47,7 +174,6 @@ No board menus are defined in the initial version. SDL2 and graphical host targe
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
 - `CHANGELOG.md`: release notes in English and Japanese. The release workflow uses the matching version section as the GitHub Release body.
 - `docs/requirements.ja.md`: requirements document.
-- `docs/roadmap.md` / `docs/roadmap.ja.md`: API support matrix — what works, what's stubbed, what's planned, what's out of scope.
 - `package_index.json`: checked-in Boards Manager index, updated by the release workflow.
 
 ## Prerequisites
