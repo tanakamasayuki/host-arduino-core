@@ -175,6 +175,7 @@ No board menus are defined in the initial version. SDL2 and graphical host targe
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
 - `CHANGELOG.md`: release notes in English and Japanese. The release workflow uses the matching version section as the GitHub Release body.
 - `docs/requirements.ja.md`: requirements document.
+- `examples/`: ready-to-open sketches shipped in the release ZIP (e.g. `TLSProbe` for verifying the `tls=openssl` board menu option on each OS).
 - `package_index.json`: checked-in Boards Manager index, updated by the release workflow.
 
 ## Prerequisites

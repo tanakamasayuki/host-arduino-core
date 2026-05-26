@@ -175,6 +175,7 @@ lang-ship:host:host
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
 - `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
+- `examples/`: リリース ZIP に同梱する手元実行用スケッチ（例: `tls=openssl` ボードメニューを各 OS で検証する `TLSProbe`）。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
 ## 事前準備

@@ -1,6 +1,10 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Added `examples/TLSProbe` — a user-facing sketch that compiles in both `tls=disabled` and `tls=openssl` modes, prints compile-time and runtime OpenSSL versions, exercises `SSL_CTX_new`, and emits `PROBE_RESULT=PASS|FAIL`. Intended for Windows / macOS users to validate the `tls=openssl` board menu on platforms not yet covered by CI.
+- (JA) `examples/TLSProbe` を追加。`tls=disabled` / `tls=openssl` のどちらでもビルドでき、コンパイル時と実行時の OpenSSL バージョンを表示し、`SSL_CTX_new` を呼び、`PROBE_RESULT=PASS|FAIL` を出力。Windows / macOS ユーザが `tls=openssl` メニューを各自の環境で検証するために用意。
+- (EN) Release ZIP now bundles `examples/` (previously only `cores/`, `libraries/`, board metadata, and docs were shipped), so Boards Manager users can open the included sketches directly from the Arduino IDE.
+- (JA) リリース ZIP に `examples/` を同梱するように（従来は `cores/`、`libraries/`、ボードメタデータ、ドキュメントのみ）。Boards Manager 経由のユーザが Arduino IDE から同梱スケッチを直接開けるように。
 - (EN) Added a `tls` board menu option. Default is `disabled` (no change in behavior). Selecting `tls=openssl` adds `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` so sketches can call into OpenSSL. Verified on Linux with `libssl-dev` (3.0.x). Windows MSYS2 should work with the same flags but is untested; macOS is out of scope for this minimal pass (requires `-I` / `-L` to Homebrew paths).
 - (JA) ボードメニューに `tls` を追加。デフォルトは `disabled` で動作変更なし。`tls=openssl` を選ぶと `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` が付与され、スケッチから OpenSSL を呼べる。Linux + `libssl-dev` (3.0.x) で動作確認済。Windows MSYS2 も同フラグで動く想定だが未検証、macOS は本最小実装では対象外（Homebrew パスへの `-I` / `-L` 解決が必要）。
 - (EN) Added `tests/network/tls_openssl` probe sketch that reports compile-time and runtime OpenSSL versions and exercises `SSL_CTX_new` / `SSL_CTX_free` to confirm linkage.

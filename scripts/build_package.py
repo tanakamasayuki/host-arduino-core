@@ -15,6 +15,7 @@ DEFAULT_REPO = "tanakamasayuki/host-arduino-core"
 PACKAGE_FILES = (
     "cores",
     "libraries",
+    "examples",
     "platform.txt",
     "boards.txt",
     "README.md",
