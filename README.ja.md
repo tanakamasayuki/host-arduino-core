@@ -72,7 +72,7 @@ ESP32 拡張かを示します。
 | `IPAddress` | ✅ | Arduino | Arduino 互換の API 一式 |
 | `UDP`（抽象） | ✅ | Arduino | `cores/host/Udp.h` |
 | `WiFiUDP`（ユニキャスト + ブロードキャスト） | ✅ | ESP32 | POSIX / Winsock 実装。`SO_BROADCAST` を `begin()` で有効化。`lastError()` で errno 取得可。受信バッファ 65535 B。パケット操作前に `begin(0)` 必須（ESP32 より厳格）。誤用時は `Serial` に `[HostCore]` ヒントを出力（`cores/host/HostDiag.h` 参照） |
-| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | 基底クラスのまま 0 を返す（参加していない）。VBAN 等で必要 |
+| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | 優先度低。基底クラスのまま 0 を返す（参加していない）。host 上でのマルチキャストテストは Windows / WSL2 で安定させにくいため積極対応はしない |
 | `WiFi` ファサード（`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`） | 🟡 | ESP32 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
 | `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | スタブで 0 返却が妥当 |
 | `WiFi.softAP*`（実 AP 化） | 🟡 | ESP32 | `softAPIP()` のみ。実 AP 化は不可 |

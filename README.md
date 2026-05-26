@@ -72,7 +72,7 @@ Legend:
 | `IPAddress` | ✅ | Arduino | full Arduino-compatible API |
 | `UDP` (abstract) | ✅ | Arduino | `cores/host/Udp.h` |
 | `WiFiUDP` (unicast + broadcast) | ✅ | ESP32 | POSIX / Winsock backed; `SO_BROADCAST` enabled by default; `lastError()` exposes errno; rx buffer 65535 B. Requires `begin(0)` before any packet op (ESP32 is more lenient). Misuse emits `[HostCore]` hints over `Serial` (see `cores/host/HostDiag.h`) |
-| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | base returns 0 (not joined). Needed for protocols like VBAN |
+| `WiFiUDP::beginMulticast` | 🔲 | ESP32 | low priority — base returns 0 (not joined). Cross-platform multicast testing on the host (esp. Windows / WSL2) is fragile, so this is not actively pursued |
 | `WiFi` facade (`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`) | 🟡 | ESP32 | state-tracked stub (`begin` → `WL_CONNECTED`, `disconnect` → `WL_DISCONNECTED`). No real association, no scan |
 | `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | stub returning 0 would be sufficient |
 | `WiFi.softAP*` (real AP) | 🟡 | ESP32 | `softAPIP()` only; cannot become a real AP |
