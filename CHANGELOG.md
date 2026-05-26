@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Merged the API support matrix into `README.md` / `README.ja.md` and removed `docs/roadmap.md` / `docs/roadmap.ja.md`. The matrix now lives next to the rest of the user-facing docs, with each API tagged as Arduino-standard or ESP32-extension, and expanded coverage for Hardware I/O, ESP-IDF extensions, and graphics.
+- (JA) API サポート状況マトリックスを `README.md` / `README.ja.md` に統合し、`docs/roadmap.md` / `docs/roadmap.ja.md` を削除。各 API を Arduino 標準 / ESP32 拡張で区別し、ハードウェア I/O・ESP-IDF 拡張・グラフィックス領域を拡充。
 
 ## 1.0.7
 - (EN) Added `HostDiag.h` with `HOST_DIAG_ONCE` for once-per-call-site `[HostCore]` hints over `Serial`. WiFiUDP emits hints when packet methods are called before `begin()` or when sendto / recvfrom fail; FS emits a hint when `File::open()` fails for write/append.
