@@ -122,7 +122,7 @@ care about pin state should mock at the sketch layer.
 
 | API | Status | Notes |
 |-----|--------|-------|
-| M5GFX framebuffer mode + screen capture | 🔲 | draw to a framebuffer and persist as an image file (see `TODO.md`) |
+| M5GFX framebuffer mode + screen capture | 🔲 | draw to a framebuffer and persist as an image file |
 | LovyanGFX / TFT_eSPI | 🔲 | same approach as M5GFX |
 
 ### What "Planned" actually means
