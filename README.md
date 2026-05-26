@@ -107,7 +107,7 @@ care about pin state should mock at the sketch layer.
 
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
-| FreeRTOS (`xTaskCreate`, queues, semaphores, mutexes) | ⛔ | ESP-IDF | out of scope; sketches that depend on RTOS scheduling should not be tested on host |
+| FreeRTOS (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) | 🔲 | ESP-IDF | could be backed by `std::thread` / `std::mutex` / `std::condition_variable`, ignoring priority, core affinity, and stack size. Useful for the common "periodic worker task" pattern. Non-goals: priority-based scheduling, core pinning, `vTaskSuspend` immediacy, stack-overflow detection, `portENTER_CRITICAL` as real interrupt masking — sketches that rely on those should not be tested on host |
 | `esp_log` / `log_e` / `log_i` / `log_w` / `log_d` macros | 🔲 | ESP-IDF | could route to `Serial` |
 | `esp_timer` | 🔲 | ESP-IDF | thin wrapper over `millis` / `micros` |
 | `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | trivial |

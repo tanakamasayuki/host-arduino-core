@@ -108,7 +108,7 @@ ESP32 拡張かを示します。
 
 | API | 状況 | 出自 | 備考 |
 |-----|------|------|------|
-| FreeRTOS（`xTaskCreate`、キュー、セマフォ、ミューテックス） | ⛔ | ESP-IDF | 対象外。RTOS のスケジューリングに依存するスケッチは host テスト向きではない |
+| FreeRTOS（`xTaskCreate` / `vTaskDelay` / キュー / セマフォ / ミューテックス / Notify） | 🔲 | ESP-IDF | `std::thread` / `std::mutex` / `std::condition_variable` でバックする実装案。優先度・コア固定・スタックサイズは無視。「周期実行ワーカータスク」パターンには十分使える。非ゴール: 優先度ベーススケジューリング、コア固定、`vTaskSuspend` の即時性、スタックオーバーフロー検出、`portENTER_CRITICAL` の割り込み禁止意味論。これらに依存するスケッチは host テスト向きではない |
 | `esp_log` / `log_e` / `log_i` / `log_w` / `log_d` マクロ | 🔲 | ESP-IDF | `Serial` にルーティングは可能 |
 | `esp_timer` | 🔲 | ESP-IDF | `millis` / `micros` の薄いラッパで対応可 |
 | `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | 簡単 |
