@@ -3,6 +3,12 @@
 ## Unreleased
 - (EN) Merged the API support matrix into `README.md` / `README.ja.md` and removed `docs/roadmap.md` / `docs/roadmap.ja.md`. The matrix now lives next to the rest of the user-facing docs, with each API tagged as Arduino-standard or ESP32-extension, and expanded coverage for Hardware I/O, ESP-IDF extensions, and graphics.
 - (JA) API サポート状況マトリックスを `README.md` / `README.ja.md` に統合し、`docs/roadmap.md` / `docs/roadmap.ja.md` を削除。各 API を Arduino 標準 / ESP32 拡張で区別し、ハードウェア I/O・ESP-IDF 拡張・グラフィックス領域を拡充。
+- (EN) Reclassified `WiFiClientSecure` and `HTTPClient` from ⛔ to 🔲 in the API support matrix. API headers will live in `cores/host`; TLS backends are planned along two parallel paths (priority TBD): (A) a board variant linking OpenSSL, (B) a separate repository providing an mbedTLS source-build library via `sketch.yaml`. Default board ships without TLS; HTTPS calls fail at runtime with a `[HostCore]` hint when no backend is enabled. Cert verification is always skipped on host.
+- (JA) API サポートマトリックスで `WiFiClientSecure` と `HTTPClient` を ⛔ から 🔲 へ。API ヘッダは `cores/host` 同梱予定。TLS バックエンドは 2 方式を並行検討（優先度未定）: (A) ボード variant で OpenSSL を動的リンク、(B) 別リポジトリで mbedTLS をソース同梱したライブラリを `sketch.yaml` 経由で追加。デフォルトボードは TLS 無しで、未組込み時に HTTPS は実行時失敗＋`[HostCore]` ヒント。host では証明書検証を常時スキップ。
+- (EN) Reclassified FreeRTOS scheduling primitives (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) from ⛔ to 🔲. Planned host implementation is `std::thread` / `std::mutex` / `std::condition_variable` backed, ignoring priorities, core affinity, and stack size; useful for periodic-worker patterns but explicitly not a substitute for real RTOS scheduling tests.
+- (JA) FreeRTOS のスケジューリング系 API（`xTaskCreate` / `vTaskDelay` / キュー / セマフォ / ミューテックス / Notify）を ⛔ から 🔲 へ。`std::thread` / `std::mutex` / `std::condition_variable` でバックする実装方針で、優先度・コア固定・スタックサイズは無視。周期ワーカー用途には十分だが、RTOS スケジューリングそのもののテスト代替にはならないことを非ゴールとして明記。
+- (EN) Lowered `WiFiUDP::beginMulticast` to "low priority"; removed the VBAN-specific motivation since cross-platform multicast testing on host (especially Windows / WSL2) is fragile.
+- (JA) `WiFiUDP::beginMulticast` を「優先度低」に変更。host 上でのマルチキャストテストは Windows / WSL2 で不安定なため、VBAN 等のユースケース記述は削除。
 
 ## 1.0.7
 - (EN) Added `HostDiag.h` with `HOST_DIAG_ONCE` for once-per-call-site `[HostCore]` hints over `Serial`. WiFiUDP emits hints when packet methods are called before `begin()` or when sendto / recvfrom fail; FS emits a hint when `File::open()` fails for write/append.

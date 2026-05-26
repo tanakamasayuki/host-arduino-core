@@ -79,8 +79,8 @@ Legend:
 | `Client` / `Server` (abstract) | 🔲 | Arduino | prerequisite for any TCP impl |
 | `WiFiClient` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~250 LOC |
 | `WiFiServer` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~120 LOC |
-| `WiFiClientSecure` (TLS) | ⛔ | ESP32 | would need mbedTLS / OpenSSL — out of scope here |
-| `HTTPClient` | ⛔ | ESP32 | belongs in a separate library on top of `Client` |
+| `WiFiClientSecure` (TLS) | 🔲 | ESP32 | API header lives in `cores/host`. TLS backend is undecided and two backends are planned in parallel, with priority TBD: **(A)** a board variant that dynamically links OpenSSL (supported OS set is being decided); **(B)** a separate repository providing an mbedTLS source-build library, pulled in via `sketch.yaml`'s `libraries:`. Either backend is enough for plain HTTPS access. The default board ships **without** TLS — `connect()` returns 0 and emits a `[HostCore]` hint; the build still succeeds. Certificate verification is always skipped on host (real-device test concern). To avoid include-path collisions with the ESP32 / ESP8266 cores, the backend-side header uses a distinct name (e.g. `HostTLSClient.h`) and `cores/host/WiFiClientSecure.h` delegates to it via `__has_include` |
+| `HTTPClient` | 🔲 | ESP32 | API header lives in `cores/host`. HTTP works whenever `WiFiClient` is available. HTTPS works only when a TLS backend (see `WiFiClientSecure`) is enabled; otherwise `begin("https://…")` fails at runtime with a `[HostCore]` hint and the build still succeeds |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | low priority |
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | low priority |
