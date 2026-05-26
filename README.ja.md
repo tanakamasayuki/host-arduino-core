@@ -76,9 +76,9 @@ ESP32 拡張かを示します。
 | `WiFi` ファサード（`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`） | 🟡 | ESP32 | 状態追跡型のスタブ（`begin` → `WL_CONNECTED`、`disconnect` → `WL_DISCONNECTED`）。実アソシエーション・スキャンは無し |
 | `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | スタブで 0 返却が妥当 |
 | `WiFi.softAP*`（実 AP 化） | 🟡 | ESP32 | `softAPIP()` のみ。実 AP 化は不可 |
-| `Client` / `Server`（抽象） | 🔲 | Arduino | TCP 実装の前提 |
-| `WiFiClient`（TCP） | 🔲 | Arduino / ESP32 | POSIX socket で実装可能、概算 250 行 |
-| `WiFiServer`（TCP） | 🔲 | Arduino / ESP32 | POSIX socket で実装可能、概算 120 行 |
+| `Client` / `Server`（抽象） | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
+| `WiFiClient`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。ノンブロッキング。`shared_ptr` で内部状態を共有するので `WiFiClient c = server.available();` が安全。`lastError()` で errno 取得可。誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力 |
+| `WiFiServer`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。`begin(port)` の `port=0` で OS にエフェメラルポートを割り当てさせ、`port()` で確認可能。`available()` / `accept()` はノンブロッキング |
 | `WiFiClientSecure`（TLS） | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。TLS バックエンドは未定で、2 方式を並行サポート予定（優先度未定）: **(A)** ボード variant で OpenSSL を動的リンク（対応 OS は順次決定）／**(B)** 別リポジトリで mbedTLS をソース同梱したライブラリを `sketch.yaml` の `libraries:` で追加。どちらの方式でも単純な HTTPS アクセスは可能。**デフォルトボードは TLS 無し**で、未組込み時は `connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは通る）。証明書検証は host では常時スキップ（実機テストの責務）。ESP32 / ESP8266 Core との include パス衝突を避けるため、バックエンド側ヘッダは別名（例: `HostTLSClient.h`）を使い、`cores/host/WiFiClientSecure.h` から `__has_include` で委譲 |
 | `HTTPClient` | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。HTTP は `WiFiClient` が利用できる場合は常に動作。HTTPS は TLS バックエンド（`WiFiClientSecure` 参照）が有効な構成でのみ動作し、無効時は `begin("https://…")` が実行時に失敗 + `[HostCore]` ヒントを出力（ビルドは通る） |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | 同上（`Server` の上の別ライブラリ） |
@@ -141,7 +141,8 @@ ESP32 拡張かを示します。
 tests/
   runtime/  smoke, timing, print_api
   storage/  fs
-  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi
+  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
+            tcp_echo, tcp_client
 ```
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい

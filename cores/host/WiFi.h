@@ -9,6 +9,8 @@
 
 #include "IPAddress.h"
 #include "WString.h"
+#include "WiFiClient.h"
+#include "WiFiServer.h"
 #include "WiFiUdp.h"
 
 enum WiFiMode_t

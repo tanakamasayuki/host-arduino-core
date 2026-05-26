@@ -17,30 +17,8 @@
 
 #include <vector>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-typedef int socklen_t_compat;
-#define HOST_CLOSESOCKET closesocket
-#define HOST_SOCKET_INVALID INVALID_SOCKET
-typedef SOCKET host_socket_t;
-inline int host_socket_errno() { return WSAGetLastError(); }
-#else
-#include <arpa/inet.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
-#define HOST_CLOSESOCKET ::close
-#define HOST_SOCKET_INVALID (-1)
-typedef int host_socket_t;
-inline int host_socket_errno() { return errno; }
-#endif
-
 #include "HostDiag.h"
+#include "HostSocket.h"
 #include "IPAddress.h"
 #include "Udp.h"
 
@@ -76,7 +54,7 @@ public:
             sock_ = HOST_SOCKET_INVALID;
             return 0;
         }
-        set_nonblocking(sock_);
+        host_socket_set_nonblocking(sock_);
         return 1;
     }
 
@@ -192,12 +170,7 @@ public:
             {
                 const int err = host_socket_errno();
                 last_error_ = err;
-#ifdef _WIN32
-                const bool benign = (err == WSAEWOULDBLOCK);
-#else
-                const bool benign = (err == EAGAIN || err == EWOULDBLOCK);
-#endif
-                if (!benign)
+                if (!host_socket_would_block(err))
                     HOST_DIAG_ONCE("WiFiUDP::parsePacket() recvfrom failed; see lastError()");
             }
             rx_buf_.clear();
@@ -255,17 +228,6 @@ public:
     int lastError() const { return last_error_; }
 
 private:
-    static void set_nonblocking(host_socket_t s)
-    {
-#ifdef _WIN32
-        u_long mode = 1;
-        ::ioctlsocket(s, FIONBIO, &mode);
-#else
-        const int flags = ::fcntl(s, F_GETFL, 0);
-        ::fcntl(s, F_SETFL, flags | O_NONBLOCK);
-#endif
-    }
-
     host_socket_t sock_;
     std::vector<uint8_t> tx_buf_;
     sockaddr_in tx_addr_{};

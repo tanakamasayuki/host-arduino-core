@@ -1,6 +1,10 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Added abstract `Client` and `Server` base classes, plus `WiFiClient` (TCP) and `WiFiServer` (TCP) host implementations. `WiFiClient` shares its socket state via `shared_ptr` so values returned from `WiFiServer::available()` behave correctly when copied. Both classes expose `lastError()` and emit `[HostCore]` diagnostic hints via `HostDiag` on misuse. Extracted shared POSIX/Winsock helpers into `cores/host/HostSocket.h` (used by `WiFiUDP`, `WiFiClient`, `WiFiServer`).
+- (JA) 抽象基底 `Client` と `Server` を追加し、host 向け TCP 実装として `WiFiClient` と `WiFiServer` を追加。`WiFiClient` は `shared_ptr` でソケット状態を共有するため、`WiFiServer::available()` の戻り値を値コピーしても正しく動作。両クラスとも `lastError()` を公開し、誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力。POSIX / Winsock 共通ヘルパを `cores/host/HostSocket.h` に集約（`WiFiUDP` / `WiFiClient` / `WiFiServer` で共有）。
+- (EN) Added `tests/network/tcp_echo` (sketch as TCP server) and `tests/network/tcp_client` (sketch as TCP client) to cover the new classes end-to-end.
+- (JA) `tests/network/tcp_echo`（スケッチを TCP サーバとして動作）と `tests/network/tcp_client`（スケッチを TCP クライアントとして動作）を追加し、新クラスの動作を E2E で確認。
 - (EN) Merged the API support matrix into `README.md` / `README.ja.md` and removed `docs/roadmap.md` / `docs/roadmap.ja.md`. The matrix now lives next to the rest of the user-facing docs, with each API tagged as Arduino-standard or ESP32-extension, and expanded coverage for Hardware I/O, ESP-IDF extensions, and graphics.
 - (JA) API サポート状況マトリックスを `README.md` / `README.ja.md` に統合し、`docs/roadmap.md` / `docs/roadmap.ja.md` を削除。各 API を Arduino 標準 / ESP32 拡張で区別し、ハードウェア I/O・ESP-IDF 拡張・グラフィックス領域を拡充。
 - (EN) Reclassified `WiFiClientSecure` and `HTTPClient` from ⛔ to 🔲 in the API support matrix. API headers will live in `cores/host`; TLS backends are planned along two parallel paths (priority TBD): (A) a board variant linking OpenSSL, (B) a separate repository providing an mbedTLS source-build library via `sketch.yaml`. Default board ships without TLS; HTTPS calls fail at runtime with a `[HostCore]` hint when no backend is enabled. Cert verification is always skipped on host.

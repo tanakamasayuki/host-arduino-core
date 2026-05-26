@@ -76,9 +76,9 @@ Legend:
 | `WiFi` facade (`begin` / `disconnect` / `status` / `localIP` / `SSID` / `RSSI` / `mode`) | 🟡 | ESP32 | state-tracked stub (`begin` → `WL_CONNECTED`, `disconnect` → `WL_DISCONNECTED`). No real association, no scan |
 | `WiFi.scanNetworks` / `scanComplete` | 🔲 | ESP32 | stub returning 0 would be sufficient |
 | `WiFi.softAP*` (real AP) | 🟡 | ESP32 | `softAPIP()` only; cannot become a real AP |
-| `Client` / `Server` (abstract) | 🔲 | Arduino | prerequisite for any TCP impl |
-| `WiFiClient` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~250 LOC |
-| `WiFiServer` (TCP) | 🔲 | Arduino / ESP32 | doable on POSIX sockets, ~120 LOC |
+| `Client` / `Server` (abstract) | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
+| `WiFiClient` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; non-blocking socket; copy-shared via `shared_ptr` so `WiFiClient c = server.available();` works. `lastError()` exposes errno; misuse emits `[HostCore]` hints via `HostDiag` |
+| `WiFiServer` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; `begin(port)` with `port=0` lets the OS pick an ephemeral port (`port()` returns the resolved value); `available()` / `accept()` are non-blocking |
 | `WiFiClientSecure` (TLS) | 🔲 | ESP32 | API header lives in `cores/host`. TLS backend is undecided and two backends are planned in parallel, with priority TBD: **(A)** a board variant that dynamically links OpenSSL (supported OS set is being decided); **(B)** a separate repository providing an mbedTLS source-build library, pulled in via `sketch.yaml`'s `libraries:`. Either backend is enough for plain HTTPS access. The default board ships **without** TLS — `connect()` returns 0 and emits a `[HostCore]` hint; the build still succeeds. Certificate verification is always skipped on host (real-device test concern). To avoid include-path collisions with the ESP32 / ESP8266 cores, the backend-side header uses a distinct name (e.g. `HostTLSClient.h`) and `cores/host/WiFiClientSecure.h` delegates to it via `__has_include` |
 | `HTTPClient` | 🔲 | ESP32 | API header lives in `cores/host`. HTTP works whenever `WiFiClient` is available. HTTPS works only when a TLS backend (see `WiFiClientSecure`) is enabled; otherwise `begin("https://…")` fails at runtime with a `[HostCore]` hint and the build still succeeds |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
@@ -141,7 +141,8 @@ behavioral coverage:
 tests/
   runtime/  smoke, timing, print_api
   storage/  fs
-  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi
+  network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
+            tcp_echo, tcp_client
 ```
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
