@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 1.1.0
+- (EN) Added `examples/TLSProbe` — a user-facing sketch that compiles in both `tls=disabled` and `tls=openssl` modes, prints compile-time and runtime OpenSSL versions, exercises `SSL_CTX_new`, and emits `PROBE_RESULT=PASS|FAIL`. Intended for Windows / macOS users to validate the `tls=openssl` board menu on platforms not yet covered by CI.
+- (JA) `examples/TLSProbe` を追加。`tls=disabled` / `tls=openssl` のどちらでもビルドでき、コンパイル時と実行時の OpenSSL バージョンを表示し、`SSL_CTX_new` を呼び、`PROBE_RESULT=PASS|FAIL` を出力。Windows / macOS ユーザが `tls=openssl` メニューを各自の環境で検証するために用意。
+- (EN) Release ZIP now bundles `examples/` (previously only `cores/`, `libraries/`, board metadata, and docs were shipped), so Boards Manager users can open the included sketches directly from the Arduino IDE.
+- (JA) リリース ZIP に `examples/` を同梱するように（従来は `cores/`、`libraries/`、ボードメタデータ、ドキュメントのみ）。Boards Manager 経由のユーザが Arduino IDE から同梱スケッチを直接開けるように。
+- (EN) Added a `tls` board menu option. Default is `disabled` (no change in behavior). Selecting `tls=openssl` adds `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` so sketches can call into OpenSSL. Verified on Linux with `libssl-dev` (3.0.x). Windows MSYS2 should work with the same flags but is untested; macOS is out of scope for this minimal pass (requires `-I` / `-L` to Homebrew paths).
+- (JA) ボードメニューに `tls` を追加。デフォルトは `disabled` で動作変更なし。`tls=openssl` を選ぶと `-DHOST_ARDUINO_HAVE_OPENSSL -lssl -lcrypto` が付与され、スケッチから OpenSSL を呼べる。Linux + `libssl-dev` (3.0.x) で動作確認済。Windows MSYS2 も同フラグで動く想定だが未検証、macOS は本最小実装では対象外（Homebrew パスへの `-I` / `-L` 解決が必要）。
+- (EN) Added `tests/network/tls_openssl` probe sketch that reports compile-time and runtime OpenSSL versions and exercises `SSL_CTX_new` / `SSL_CTX_free` to confirm linkage.
+- (JA) `tests/network/tls_openssl` を追加。コンパイル時と実行時の OpenSSL バージョンを表示し、`SSL_CTX_new` / `SSL_CTX_free` を呼んでリンクが解決していることを確認。
+- (EN) Added abstract `Client` and `Server` base classes, plus `WiFiClient` (TCP) and `WiFiServer` (TCP) host implementations. `WiFiClient` shares its socket state via `shared_ptr` so values returned from `WiFiServer::available()` behave correctly when copied. Both classes expose `lastError()` and emit `[HostCore]` diagnostic hints via `HostDiag` on misuse. Extracted shared POSIX/Winsock helpers into `cores/host/HostSocket.h` (used by `WiFiUDP`, `WiFiClient`, `WiFiServer`).
+- (JA) 抽象基底 `Client` と `Server` を追加し、host 向け TCP 実装として `WiFiClient` と `WiFiServer` を追加。`WiFiClient` は `shared_ptr` でソケット状態を共有するため、`WiFiServer::available()` の戻り値を値コピーしても正しく動作。両クラスとも `lastError()` を公開し、誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力。POSIX / Winsock 共通ヘルパを `cores/host/HostSocket.h` に集約（`WiFiUDP` / `WiFiClient` / `WiFiServer` で共有）。
+- (EN) Added `tests/network/tcp_echo` (sketch as TCP server) and `tests/network/tcp_client` (sketch as TCP client) to cover the new classes end-to-end.
+- (JA) `tests/network/tcp_echo`（スケッチを TCP サーバとして動作）と `tests/network/tcp_client`（スケッチを TCP クライアントとして動作）を追加し、新クラスの動作を E2E で確認。
+- (EN) Merged the API support matrix into `README.md` / `README.ja.md` and removed `docs/roadmap.md` / `docs/roadmap.ja.md`. The matrix now lives next to the rest of the user-facing docs, with each API tagged as Arduino-standard or ESP32-extension, and expanded coverage for Hardware I/O, ESP-IDF extensions, and graphics.
+- (JA) API サポート状況マトリックスを `README.md` / `README.ja.md` に統合し、`docs/roadmap.md` / `docs/roadmap.ja.md` を削除。各 API を Arduino 標準 / ESP32 拡張で区別し、ハードウェア I/O・ESP-IDF 拡張・グラフィックス領域を拡充。
+- (EN) Reclassified `WiFiClientSecure` and `HTTPClient` from ⛔ to 🔲 in the API support matrix. API headers will live in `cores/host`; TLS backends are planned along two parallel paths (priority TBD): (A) a board variant linking OpenSSL, (B) a separate repository providing an mbedTLS source-build library via `sketch.yaml`. Default board ships without TLS; HTTPS calls fail at runtime with a `[HostCore]` hint when no backend is enabled. Cert verification is always skipped on host.
+- (JA) API サポートマトリックスで `WiFiClientSecure` と `HTTPClient` を ⛔ から 🔲 へ。API ヘッダは `cores/host` 同梱予定。TLS バックエンドは 2 方式を並行検討（優先度未定）: (A) ボード variant で OpenSSL を動的リンク、(B) 別リポジトリで mbedTLS をソース同梱したライブラリを `sketch.yaml` 経由で追加。デフォルトボードは TLS 無しで、未組込み時に HTTPS は実行時失敗＋`[HostCore]` ヒント。host では証明書検証を常時スキップ。
+- (EN) Reclassified FreeRTOS scheduling primitives (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) from ⛔ to 🔲. Planned host implementation is `std::thread` / `std::mutex` / `std::condition_variable` backed, ignoring priorities, core affinity, and stack size; useful for periodic-worker patterns but explicitly not a substitute for real RTOS scheduling tests.
+- (JA) FreeRTOS のスケジューリング系 API（`xTaskCreate` / `vTaskDelay` / キュー / セマフォ / ミューテックス / Notify）を ⛔ から 🔲 へ。`std::thread` / `std::mutex` / `std::condition_variable` でバックする実装方針で、優先度・コア固定・スタックサイズは無視。周期ワーカー用途には十分だが、RTOS スケジューリングそのもののテスト代替にはならないことを非ゴールとして明記。
+- (EN) Lowered `WiFiUDP::beginMulticast` to "low priority"; removed the VBAN-specific motivation since cross-platform multicast testing on host (especially Windows / WSL2) is fragile.
+- (JA) `WiFiUDP::beginMulticast` を「優先度低」に変更。host 上でのマルチキャストテストは Windows / WSL2 で不安定なため、VBAN 等のユースケース記述は削除。
+
 ## 1.0.7
 - (EN) Added `HostDiag.h` with `HOST_DIAG_ONCE` for once-per-call-site `[HostCore]` hints over `Serial`. WiFiUDP emits hints when packet methods are called before `begin()` or when sendto / recvfrom fail; FS emits a hint when `File::open()` fails for write/append.
 - (JA) `HostDiag.h` を追加。`HOST_DIAG_ONCE` で呼び出しサイトごとに 1 回 `Serial` に `[HostCore]` ヒントを出力。WiFiUDP は `begin()` 前のパケット操作・sendto / recvfrom 失敗時に、FS は `File::open()` の書き込みモード失敗時にヒントを出力。
