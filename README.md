@@ -107,7 +107,7 @@ care about pin state should mock at the sketch layer.
 
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
-| FreeRTOS (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) | 🔲 | ESP-IDF | could be backed by `std::thread` / `std::mutex` / `std::condition_variable`, ignoring priority, core affinity, and stack size. Useful for the common "periodic worker task" pattern. Non-goals: priority-based scheduling, core pinning, `vTaskSuspend` immediacy, stack-overflow detection, `portENTER_CRITICAL` as real interrupt masking — sketches that rely on those should not be tested on host |
+| FreeRTOS (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) | ✅ | ESP-IDF | backed by `std::thread` / `std::mutex` / `std::condition_variable`. Priority, core affinity, and stack size arguments are accepted and ignored. `portENTER_CRITICAL` collapses to a global recursive mutex. `vTaskDelete(NULL)` sets an exit flag and returns; the task function is expected to observe it and return — we cannot portably terminate another thread. Non-goals: priority-based scheduling, core pinning, `vTaskSuspend` immediacy, stack-overflow detection, real interrupt masking — sketches that rely on those should not be tested on host |
 | `esp_log` / `log_e` / `log_i` / `log_w` / `log_d` macros | 🔲 | ESP-IDF | could route to `Serial` |
 | `esp_timer` | 🔲 | ESP-IDF | thin wrapper over `millis` / `micros` |
 | `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | trivial |
