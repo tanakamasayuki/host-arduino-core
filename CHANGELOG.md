@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Fixed Windows build failures when a sketch (or transitively, a library like OpenSSL via `<openssl/ssl.h>` → `<winsock2.h>` → `<windows.h>`) pulls in `winuser.h` or `rpcndr.h`. Those headers declare `struct INPUT` and `typedef unsigned char boolean` respectively, which collide with the Arduino API's `INPUT` macro and `bool`-based `boolean` typedef. `cores/host/Arduino.h` (and defensively `HostSocket.h`) now `#define WIN32_LEAN_AND_MEAN`, `NOUSER`, `NOGDI`, `NOMINMAX` on `_WIN32` before any other include, so subsequent inclusions of `windows.h` skip the conflicting parts. Verified manually on Windows with the `TLSProbe` example (OpenSSL 3.5.2).
+- (JA) Windows でスケッチが（または OpenSSL のように間接的に `<openssl/ssl.h>` → `<winsock2.h>` → `<windows.h>` 経由で）`winuser.h` や `rpcndr.h` を取り込んだ際のビルド失敗を修正。これらは `struct INPUT` と `typedef unsigned char boolean` を宣言し、Arduino API の `INPUT` マクロ・`bool` ベースの `boolean` typedef と衝突する。`cores/host/Arduino.h`（保険として `HostSocket.h` にも）の最上段で `_WIN32` のとき `WIN32_LEAN_AND_MEAN` / `NOUSER` / `NOGDI` / `NOMINMAX` を `#define` し、後段の `windows.h` が衝突部分をスキップするように。Windows 上で `TLSProbe` example（OpenSSL 3.5.2）の手動検証で動作確認済。
 - (EN) Documented alternative ways to connect to the TCP-backed `Serial` endpoint in `README.md` / `README.ja.md` (nc, socat, telnet, PuTTY `-raw` CLI, TeraTerm GUI). Useful for quick sanity checks without writing a Python connector — especially on Windows.
 - (JA) TCP `Serial` エンドポイントへの代替接続手段を `README.md` / `README.ja.md` に記載（nc / socat / telnet / PuTTY の `-raw` CLI / TeraTerm GUI）。Python を書かずに動作確認したい場合の利便性向上（特に Windows）。
 
