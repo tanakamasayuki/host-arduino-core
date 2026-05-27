@@ -295,9 +295,6 @@ macOS の `g++` は実体が Apple clang のことがありますが、GCC 互�
    # socat — Linux / macOS（apt install socat / brew install socat）
    socat - TCP:127.0.0.1:34567
 
-   # curl — 3 OS とも標準で同梱、追加インストール不要
-   curl telnet://127.0.0.1:34567
-
    # telnet — Windows は機能追加で有効化、macOS は brew、Linux は inetutils
    telnet 127.0.0.1 34567
 

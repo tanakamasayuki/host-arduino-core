@@ -1,8 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
-- (EN) Documented alternative ways to connect to the TCP-backed `Serial` endpoint in `README.md` / `README.ja.md` (nc, socat, curl telnet scheme, telnet, PuTTY `-raw` CLI, TeraTerm GUI). Useful for quick sanity checks without writing a Python connector — especially on Windows.
-- (JA) TCP `Serial` エンドポイントへの代替接続手段を `README.md` / `README.ja.md` に記載（nc / socat / curl telnet スキーム / telnet / PuTTY の `-raw` CLI / TeraTerm GUI）。Python を書かずに動作確認したい場合の利便性向上（特に Windows）。
+- (EN) Documented alternative ways to connect to the TCP-backed `Serial` endpoint in `README.md` / `README.ja.md` (nc, socat, telnet, PuTTY `-raw` CLI, TeraTerm GUI). Useful for quick sanity checks without writing a Python connector — especially on Windows.
+- (JA) TCP `Serial` エンドポイントへの代替接続手段を `README.md` / `README.ja.md` に記載（nc / socat / telnet / PuTTY の `-raw` CLI / TeraTerm GUI）。Python を書かずに動作確認したい場合の利便性向上（特に Windows）。
 
 ## 1.1.0
 - (EN) Added `examples/TLSProbe` — a user-facing sketch that compiles in both `tls=disabled` and `tls=openssl` modes, prints compile-time and runtime OpenSSL versions, exercises `SSL_CTX_new`, and emits `PROBE_RESULT=PASS|FAIL`. Intended for Windows / macOS users to validate the `tls=openssl` board menu on platforms not yet covered by CI.

@@ -295,9 +295,6 @@ On macOS, `g++` is often Apple clang behind a GCC-compatible command name. That 
    # socat — Linux / macOS (apt install socat / brew install socat)
    socat - TCP:127.0.0.1:34567
 
-   # curl — all three OSes, no extra install
-   curl telnet://127.0.0.1:34567
-
    # telnet — Windows optional feature; macOS via brew; Linux inetutils
    telnet 127.0.0.1 34567
 
