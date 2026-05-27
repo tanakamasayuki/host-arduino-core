@@ -80,7 +80,7 @@ ESP32 拡張かを示します。
 | `WiFiClient`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。ノンブロッキング。`shared_ptr` で内部状態を共有するので `WiFiClient c = server.available();` が安全。`lastError()` で errno 取得可。誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力 |
 | `WiFiServer`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。`begin(port)` の `port=0` で OS にエフェメラルポートを割り当てさせ、`port()` で確認可能。`available()` / `accept()` はノンブロッキング |
 | `WiFiClientSecure`（TLS） | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` は `WiFiClient` を継承し、ボードメニュー `tls=openssl` 選択時に OpenSSL を使用（Linux `libssl-dev` 3.0.x と Windows MSYS2 UCRT64 `openssl` 3.5.2 で動作確認済）。`tls=disabled`（デフォルト）でもクラス自体はコンパイル可能で、`connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは常に通る）。証明書検証は host では常時スキップ（実機テストの責務）。`setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` 等は no-op で受理。macOS は OpenSSL バックエンドの対象外（追加の `-I` / `-L` 解決が必要）。mbedTLS をソース同梱した別リポジトリ版バックエンドは引き続き将来計画（OS パッケージ依存を回避できる代替手段として） |
-| `HTTPClient` | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。HTTP は `WiFiClient` が利用できる場合は常に動作。HTTPS は TLS バックエンド（`WiFiClientSecure` 参照）が有効な構成でのみ動作し、無効時は `begin("https://…")` が実行時に失敗 + `[HostCore]` ヒントを出力（ビルドは通る） |
+| `HTTPClient` | ✅ | ESP32 | `cores/host/HTTPClient.h`。`begin(url)` で `http://` は `WiFiClient`、`https://` は `WiFiClientSecure` を内部で自動選択（後者はボードメニュー `tls=openssl` が必要。未設定時は `begin("https://…")` が false を返し `[HostCore]` ヒントを出力）。サポート: `GET` / `POST` / `PUT` / `PATCH` / `sendRequest`、`addHeader`、`getString`（`Content-Length` と `Transfer-Encoding: chunked` の両方を decode）、`getStream` / `getStreamPtr`、`getSize`、`getLocation`、`setTimeout`、`setUserAgent`、`setAuthorization`。接続戦略は毎リクエスト `Connection: close`（keep-alive 無し）。**未実装**: リダイレクト自動追従（ステータスコード + `getLocation()` を見て再リクエストしてください）、multipart、gzip、cookie、Basic 認証ヘルパ（`addHeader("Authorization", ...)` を直接使用） |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | 同上（`Server` の上の別ライブラリ） |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | 優先度低 |
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | 優先度低 |
@@ -142,7 +142,8 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl, tls_secure_connect
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
+            http_get, https_get
 ```
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい

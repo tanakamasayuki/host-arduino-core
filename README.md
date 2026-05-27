@@ -80,7 +80,7 @@ Legend:
 | `WiFiClient` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; non-blocking socket; copy-shared via `shared_ptr` so `WiFiClient c = server.available();` works. `lastError()` exposes errno; misuse emits `[HostCore]` hints via `HostDiag` |
 | `WiFiServer` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; `begin(port)` with `port=0` lets the OS pick an ephemeral port (`port()` returns the resolved value); `available()` / `accept()` are non-blocking |
 | `WiFiClientSecure` (TLS) | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` extends `WiFiClient` and uses OpenSSL when the `tls=openssl` board menu option is selected (verified on Linux `libssl-dev` 3.0.x and Windows MSYS2 UCRT64 `openssl` 3.5.2). When `tls=disabled` (the default), the class still compiles — `connect()` returns 0 and emits a `[HostCore]` hint, the build always succeeds. Certificate verification is always skipped on host (real-device test concern); `setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` are no-op shims. macOS is out of scope for the OpenSSL backend (needs additional `-I` / `-L` paths). A future mbedTLS source-build library is still planned as an alternative backend that bypasses the OS-package dependency |
-| `HTTPClient` | 🔲 | ESP32 | API header lives in `cores/host`. HTTP works whenever `WiFiClient` is available. HTTPS works only when a TLS backend (see `WiFiClientSecure`) is enabled; otherwise `begin("https://…")` fails at runtime with a `[HostCore]` hint and the build still succeeds |
+| `HTTPClient` | ✅ | ESP32 | `cores/host/HTTPClient.h`. `begin(url)` auto-selects `WiFiClient` for `http://` and `WiFiClientSecure` for `https://` (the latter requires the `tls=openssl` board menu option; without it, `begin("https://…")` returns false and emits a `[HostCore]` hint). Supports `GET` / `POST` / `PUT` / `PATCH` / `sendRequest`, `addHeader`, `getString` (decodes both `Content-Length` and `Transfer-Encoding: chunked`), `getStream` / `getStreamPtr`, `getSize`, `getLocation`, `setTimeout`, `setUserAgent`, `setAuthorization`. Connection strategy is `Connection: close` per request — no keep-alive. **Not implemented**: automatic redirect following (check the status code + `getLocation()` and re-issue), multipart, gzip, cookies, basic-auth helpers (use `addHeader("Authorization", ...)` directly) |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | low priority |
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | low priority |
@@ -142,7 +142,8 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl, tls_secure_connect
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
+            http_get, https_get
 ```
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a

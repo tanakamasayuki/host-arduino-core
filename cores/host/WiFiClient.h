@@ -81,7 +81,14 @@ public:
 
         IPAddress ip;
         if (ip.fromString(host))
-            return connect(ip, port);
+        {
+            // Explicit base call: subclasses (e.g. WiFiClientSecure)
+            // override connect(IPAddress) to layer extra work on top.
+            // An unqualified call here would virtual-dispatch into the
+            // subclass even when the *subclass's* connect(host, port)
+            // is what called us — causing double handshakes.
+            return WiFiClient::connect(ip, port);
+        }
 
         addrinfo hints{};
         hints.ai_family = AF_INET;
@@ -96,7 +103,7 @@ public:
         IPAddress resolved;
         memcpy(resolved.raw_address(), &sa->sin_addr.s_addr, 4);
         ::freeaddrinfo(res);
-        return connect(resolved, port);
+        return WiFiClient::connect(resolved, port);
     }
 
     size_t write(uint8_t b) override { return write(&b, 1); }
