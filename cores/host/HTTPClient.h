@@ -212,13 +212,17 @@ public:
             if (resolved.length() == 0)
                 return last_code;
 
-            // Preserve user-added headers across the redirect; only
-            // tear down the connection-level state.
-            std::vector<Header> saved_headers = request_headers_;
+            // Match ESP32 Arduino HTTPClient (v3.x) behavior: user-added
+            // request headers are NOT carried across redirects. Sketches
+            // that need persistent headers should set
+            // HTTPC_DISABLE_FOLLOW_REDIRECTS, observe the 3xx, and
+            // re-issue manually with the headers they want. Diverging
+            // from ESP32 here would let sketches "work on host but fail
+            // on real silicon" — exactly the surprise this core exists
+            // to prevent.
             close_connection();
             if (!begin(resolved))
                 return HTTPC_ERROR_CONNECTION_REFUSED;
-            request_headers_ = saved_headers;
         }
         return last_code;
     }
