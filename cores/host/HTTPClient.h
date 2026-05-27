@@ -49,6 +49,13 @@
 #define HTTPC_ERROR_READ_TIMEOUT (-11)
 #define HTTPC_ERROR_TLS_BACKEND_MISSING (-100)
 
+typedef enum
+{
+    HTTPC_DISABLE_FOLLOW_REDIRECTS = 0,
+    HTTPC_STRICT_FOLLOW_REDIRECTS = 1,
+    HTTPC_FORCE_FOLLOW_REDIRECTS = 2,
+} followRedirects_t;
+
 class HTTPClient
 {
 public:
@@ -115,6 +122,8 @@ public:
 
     void setTimeout(uint16_t timeout_ms) { timeout_ms_ = timeout_ms; }
     void setUserAgent(const String &ua) { user_agent_ = ua; }
+    void setFollowRedirects(followRedirects_t mode) { follow_mode_ = mode; }
+    void setRedirectLimit(uint16_t limit) { redirect_limit_ = limit; }
     void setAuthorization(const char *auth)
     {
         if (auth && *auth)
@@ -153,6 +162,69 @@ public:
     }
 
     int sendRequest(const char *verb, const uint8_t *payload, size_t size)
+    {
+        if (!client_)
+            return HTTPC_ERROR_NOT_CONNECTED;
+
+        String current_verb = verb;
+        const uint8_t *current_payload = payload;
+        size_t current_size = size;
+        int last_code = HTTPC_ERROR_CONNECTION_LOST;
+
+        // Send the initial request plus at most `redirect_limit_`
+        // follow-ups. On the final iteration we don't follow even if
+        // the response is a 3xx — the caller sees the last status
+        // code so they can decide what to do.
+        for (uint16_t hop = 0; hop <= redirect_limit_; ++hop)
+        {
+            last_code = sendOnce(current_verb.c_str(), current_payload, current_size);
+            if (last_code < 0)
+                return last_code;
+            if (!isRedirectStatus(last_code))
+                return last_code;
+            if (!shouldFollowRedirect(current_verb))
+                return last_code;
+            if (location_.length() == 0)
+                return last_code;
+            if (!owned_client_)
+            {
+                // External-client mode: cannot transparently switch
+                // between WiFiClient and WiFiClientSecure on a scheme
+                // change, so we surface the 3xx and let the caller
+                // decide.
+                return last_code;
+            }
+            if (hop == redirect_limit_)
+                return last_code; // budget exhausted, do not follow
+
+            // Per RFC + browser convention: 301/302/303 with a method
+            // other than GET/HEAD becomes a GET in FORCE mode.
+            if (follow_mode_ == HTTPC_FORCE_FOLLOW_REDIRECTS &&
+                (last_code == 301 || last_code == 302 || last_code == 303) &&
+                current_verb != "GET" && current_verb != "HEAD")
+            {
+                current_verb = "GET";
+                current_payload = nullptr;
+                current_size = 0;
+            }
+
+            const String resolved = resolveLocation(location_);
+            if (resolved.length() == 0)
+                return last_code;
+
+            // Preserve user-added headers across the redirect; only
+            // tear down the connection-level state.
+            std::vector<Header> saved_headers = request_headers_;
+            close_connection();
+            if (!begin(resolved))
+                return HTTPC_ERROR_CONNECTION_REFUSED;
+            request_headers_ = saved_headers;
+        }
+        return last_code;
+    }
+
+private:
+    int sendOnce(const char *verb, const uint8_t *payload, size_t size)
     {
         if (!client_)
             return HTTPC_ERROR_NOT_CONNECTED;
@@ -203,6 +275,55 @@ public:
         }
         return readResponseHead();
     }
+
+    static bool isRedirectStatus(int code)
+    {
+        return code == 301 || code == 302 || code == 303 || code == 307 || code == 308;
+    }
+
+    bool shouldFollowRedirect(const String &verb) const
+    {
+        if (follow_mode_ == HTTPC_DISABLE_FOLLOW_REDIRECTS)
+            return false;
+        if (follow_mode_ == HTTPC_STRICT_FOLLOW_REDIRECTS)
+            return verb == "GET" || verb == "HEAD";
+        return true; // HTTPC_FORCE_FOLLOW_REDIRECTS
+    }
+
+    String resolveLocation(const String &loc) const
+    {
+        if (loc.length() == 0)
+            return String();
+        if (loc.indexOf("://") > 0)
+            return loc; // already absolute
+        String base = use_https_ ? String("https://") : String("http://");
+        base += host_;
+        if ((use_https_ && port_ != 443) || (!use_https_ && port_ != 80))
+        {
+            base += ":";
+            base += String((unsigned long)port_);
+        }
+        if (loc.startsWith("/"))
+            return base + loc;
+        // Path-relative reference: glue against current URI's directory.
+        int last_slash = uri_.lastIndexOf('/');
+        String dir = last_slash >= 0 ? uri_.substring(0, last_slash + 1) : String("/");
+        return base + dir + loc;
+    }
+
+    void close_connection()
+    {
+        if (client_)
+            client_->stop();
+        owned_client_.reset();
+        client_ = nullptr;
+        content_length_ = -1;
+        chunked_ = false;
+        // Keep location_ around so the caller can inspect it via
+        // getLocation() even on the redirect-limit-exhausted path.
+    }
+
+public:
 
     int getSize() const { return content_length_; }
     const String &getLocation() const { return location_; }
@@ -319,6 +440,8 @@ private:
     long content_length_;
     bool chunked_ = false;
     String location_;
+    followRedirects_t follow_mode_ = HTTPC_DISABLE_FOLLOW_REDIRECTS;
+    uint16_t redirect_limit_ = 10;
 
     static constexpr const char *F_AUTH = "Authorization";
 
