@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.1.1
 - (EN) Documented the OpenSSL dev-package install step under `README.md` / `README.ja.md` "Prerequisites" as an optional sub-section. Covers Debian/Ubuntu (`apt install libssl-dev`), Fedora/RHEL (`dnf install openssl-devel`), and Windows MSYS2 UCRT64 (`pacman -S mingw-w64-ucrt-x86_64-openssl`). macOS is explicitly listed as unsupported for the `tls=openssl` board option for now (Homebrew `-I` / `-L` resolution to be added later). Also pointed users at the `TLSProbe` example sketch for verifying the link.
 - (JA) `README.md` / `README.ja.md` の「事前準備」セクションに OpenSSL の dev パッケージ導入手順をオプショナル小節として追加。Debian/Ubuntu (`apt install libssl-dev`)、Fedora/RHEL (`dnf install openssl-devel`)、Windows MSYS2 UCRT64 (`pacman -S mingw-w64-ucrt-x86_64-openssl`) をカバー。macOS は `tls=openssl` ボードオプションについて「現状サポート外、Homebrew `-I` / `-L` 解決の追加は将来対応」と明記。同梱の `TLSProbe` example でリンク確認できる旨も案内。
 - (EN) Excluded `tests/interop/` from default pytest collection via `addopts = "--save-state --ignore=interop"` in `tests/pyproject.toml`. A bare `pytest` invocation never accidentally runs the interop tests (which would fail without `.env` and a real ESP32). Explicit `pytest interop/` still works — `--ignore` suppresses recursive discovery but not command-line path arguments. Configured at the `pyproject.toml` level (no `conftest.py` mechanism) and uses a blacklist so new top-level categories are auto-collected by default.
