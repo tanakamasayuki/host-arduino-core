@@ -79,7 +79,7 @@ Legend:
 | `Client` / `Server` (abstract) | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
 | `WiFiClient` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; non-blocking socket; copy-shared via `shared_ptr` so `WiFiClient c = server.available();` works. `lastError()` exposes errno; misuse emits `[HostCore]` hints via `HostDiag` |
 | `WiFiServer` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; `begin(port)` with `port=0` lets the OS pick an ephemeral port (`port()` returns the resolved value); `available()` / `accept()` are non-blocking |
-| `WiFiClientSecure` (TLS) | 🔲 | ESP32 | API header lives in `cores/host`. TLS backend is undecided and two backends are planned in parallel, with priority TBD: **(A)** the `tls=openssl` board menu option dynamically links OpenSSL — verified on Linux (`apt install libssl-dev`, OpenSSL 3.0.x) and on Windows MSYS2 UCRT64 (`pacman -S mingw-w64-ucrt-x86_64-openssl`, OpenSSL 3.5.2); macOS needs additional `-I` / `-L` paths and is not in scope yet. **(B)** a separate repository providing an mbedTLS source-build library, pulled in via `sketch.yaml`'s `libraries:`. Either backend is enough for plain HTTPS access. The default board ships **without** TLS — `connect()` returns 0 and emits a `[HostCore]` hint; the build still succeeds. Certificate verification is always skipped on host (real-device test concern). To avoid include-path collisions with the ESP32 / ESP8266 cores, the backend-side header uses a distinct name (e.g. `HostTLSClient.h`) and `cores/host/WiFiClientSecure.h` delegates to it via `__has_include` |
+| `WiFiClientSecure` (TLS) | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` extends `WiFiClient` and uses OpenSSL when the `tls=openssl` board menu option is selected (verified on Linux `libssl-dev` 3.0.x and Windows MSYS2 UCRT64 `openssl` 3.5.2). When `tls=disabled` (the default), the class still compiles — `connect()` returns 0 and emits a `[HostCore]` hint, the build always succeeds. Certificate verification is always skipped on host (real-device test concern); `setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` are no-op shims. macOS is out of scope for the OpenSSL backend (needs additional `-I` / `-L` paths). A future mbedTLS source-build library is still planned as an alternative backend that bypasses the OS-package dependency |
 | `HTTPClient` | 🔲 | ESP32 | API header lives in `cores/host`. HTTP works whenever `WiFiClient` is available. HTTPS works only when a TLS backend (see `WiFiClientSecure`) is enabled; otherwise `begin("https://…")` fails at runtime with a `[HostCore]` hint and the build still succeeds |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | low priority |
@@ -142,7 +142,7 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect
 ```
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a

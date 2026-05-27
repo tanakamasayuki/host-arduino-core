@@ -79,7 +79,7 @@ ESP32 拡張かを示します。
 | `Client` / `Server`（抽象） | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
 | `WiFiClient`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。ノンブロッキング。`shared_ptr` で内部状態を共有するので `WiFiClient c = server.available();` が安全。`lastError()` で errno 取得可。誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力 |
 | `WiFiServer`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。`begin(port)` の `port=0` で OS にエフェメラルポートを割り当てさせ、`port()` で確認可能。`available()` / `accept()` はノンブロッキング |
-| `WiFiClientSecure`（TLS） | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。TLS バックエンドは未定で、2 方式を並行サポート予定（優先度未定）: **(A)** ボードメニュー `tls=openssl` で OpenSSL を動的リンク。Linux（`apt install libssl-dev`、OpenSSL 3.0.x）と Windows MSYS2 UCRT64（`pacman -S mingw-w64-ucrt-x86_64-openssl`、OpenSSL 3.5.2）で動作確認済。macOS は追加の `-I` / `-L` 解決が必要で対象外。 **(B)** 別リポジトリで mbedTLS をソース同梱したライブラリを `sketch.yaml` の `libraries:` で追加。どちらの方式でも単純な HTTPS アクセスは可能。**デフォルトボードは TLS 無し**で、未組込み時は `connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは通る）。証明書検証は host では常時スキップ（実機テストの責務）。ESP32 / ESP8266 Core との include パス衝突を避けるため、バックエンド側ヘッダは別名（例: `HostTLSClient.h`）を使い、`cores/host/WiFiClientSecure.h` から `__has_include` で委譲 |
+| `WiFiClientSecure`（TLS） | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` は `WiFiClient` を継承し、ボードメニュー `tls=openssl` 選択時に OpenSSL を使用（Linux `libssl-dev` 3.0.x と Windows MSYS2 UCRT64 `openssl` 3.5.2 で動作確認済）。`tls=disabled`（デフォルト）でもクラス自体はコンパイル可能で、`connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは常に通る）。証明書検証は host では常時スキップ（実機テストの責務）。`setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` 等は no-op で受理。macOS は OpenSSL バックエンドの対象外（追加の `-I` / `-L` 解決が必要）。mbedTLS をソース同梱した別リポジトリ版バックエンドは引き続き将来計画（OS パッケージ依存を回避できる代替手段として） |
 | `HTTPClient` | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。HTTP は `WiFiClient` が利用できる場合は常に動作。HTTPS は TLS バックエンド（`WiFiClientSecure` 参照）が有効な構成でのみ動作し、無効時は `begin("https://…")` が実行時に失敗 + `[HostCore]` ヒントを出力（ビルドは通る） |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | 同上（`Server` の上の別ライブラリ） |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | 優先度低 |
@@ -142,7 +142,7 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect
 ```
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい
