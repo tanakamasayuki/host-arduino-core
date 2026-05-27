@@ -144,7 +144,26 @@ tests/
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
             http_get, https_get, http_redirect
+  interop/  smoke, wifi_connect
 ```
+
+`runtime/`、`storage/`、`network/` は host 専用。`interop/` のスケッチ
+は host ランタイムと実 ESP32 シリコンの**両方で動く** — スケッチソース
+は両プロファイル間で完全に同一（`#ifdef` 不使用）。ESP32 で実行する
+場合:
+
+```bash
+cd tests
+uv run --env-file .env pytest --profile esp32 interop/
+```
+
+`.env` ファイルには `TEST_WIFI_SSID`、`TEST_WIFI_PASSWORD`、ESP32 用シ
+リアルポートを記載。ビルド時マクロ注入が必要なテスト（例: `wifi_connect`）
+は自身の `build_config.toml` でマッピングを宣言（`TEST_WIFI_SSID = "WIFI_SSID"`
+が `-DWIFI_SSID="..."` として渡る）。スケッチは `Serial.begin(115200); delay(5000);`
+で実機側の起動 settle 時間を確保 — host ランタイムでは `delay()` が
+`std::this_thread::sleep_for` の薄いラッパなので、同じソースが両ターゲット
+でクリーンに動作。
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい
 テストを追加するとマトリックスの 1 マスが緑になっていきます。

@@ -144,7 +144,27 @@ tests/
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
             http_get, https_get, http_redirect
+  interop/  smoke, wifi_connect
 ```
+
+`runtime/`, `storage/`, and `network/` are host-only. `interop/` sketches
+build and run on **both** the host runtime and real ESP32 silicon — the
+sketch source is identical across the two profiles (no `#ifdef`). Run
+them against ESP32 with:
+
+```bash
+cd tests
+uv run --env-file .env pytest --profile esp32 interop/
+```
+
+The `.env` file holds `TEST_WIFI_SSID`, `TEST_WIFI_PASSWORD`, and the
+ESP32 serial port. Tests that need build-time injection (e.g.
+`wifi_connect`) declare the mapping in their own `build_config.toml`
+(`TEST_WIFI_SSID = "WIFI_SSID"` → `-DWIFI_SSID="..."`). Sketches use
+`Serial.begin(115200); delay(5000);` to satisfy the real-silicon
+boot-up settling window — `delay()` on the host runtime is just
+`std::this_thread::sleep_for`, so the same source compiles and runs
+cleanly on both targets.
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
 square in the matrix goes green.
