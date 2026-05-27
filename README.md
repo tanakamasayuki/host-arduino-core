@@ -144,7 +144,7 @@ tests/
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
             http_get, https_get, http_redirect
-  interop/  smoke, wifi_connect, https_get
+  interop/  smoke, wifi_connect, https_get, http_redirect, http_chunked
 ```
 
 `runtime/`, `storage/`, and `network/` are host-only. `interop/` sketches
