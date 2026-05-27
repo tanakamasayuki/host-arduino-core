@@ -10,7 +10,10 @@ WiFiClient client;
 static String readLine()
 {
     String out;
-    const uint32_t deadline = millis() + 10000;
+    // 30s gives pytest enough headroom even when this test runs as part
+    // of a long suite where launcher startup and TCP setup accumulate
+    // delay before the CONNECT line arrives.
+    const uint32_t deadline = millis() + 30000;
     while (millis() < deadline)
     {
         const int c = Serial.read();
