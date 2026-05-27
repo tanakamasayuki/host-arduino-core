@@ -79,8 +79,8 @@ ESP32 拡張かを示します。
 | `Client` / `Server`（抽象） | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
 | `WiFiClient`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。ノンブロッキング。`shared_ptr` で内部状態を共有するので `WiFiClient c = server.available();` が安全。`lastError()` で errno 取得可。誤用時は `HostDiag` 経由で `[HostCore]` ヒントを出力 |
 | `WiFiServer`（TCP） | ✅ | Arduino / ESP32 | POSIX / Winsock 実装。`begin(port)` の `port=0` で OS にエフェメラルポートを割り当てさせ、`port()` で確認可能。`available()` / `accept()` はノンブロッキング |
-| `WiFiClientSecure`（TLS） | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。TLS バックエンドは未定で、2 方式を並行サポート予定（優先度未定）: **(A)** ボードメニュー `tls=openssl` で OpenSSL を動的リンク。現状 Linux のみ検証済（`apt install libssl-dev`）。Windows MSYS2 は同じフラグで動く想定だが未検証、macOS は追加の `-I` / `-L` 解決が必要で対象外。 **(B)** 別リポジトリで mbedTLS をソース同梱したライブラリを `sketch.yaml` の `libraries:` で追加。どちらの方式でも単純な HTTPS アクセスは可能。**デフォルトボードは TLS 無し**で、未組込み時は `connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは通る）。証明書検証は host では常時スキップ（実機テストの責務）。ESP32 / ESP8266 Core との include パス衝突を避けるため、バックエンド側ヘッダは別名（例: `HostTLSClient.h`）を使い、`cores/host/WiFiClientSecure.h` から `__has_include` で委譲 |
-| `HTTPClient` | 🔲 | ESP32 | API ヘッダは `cores/host` 同梱。HTTP は `WiFiClient` が利用できる場合は常に動作。HTTPS は TLS バックエンド（`WiFiClientSecure` 参照）が有効な構成でのみ動作し、無効時は `begin("https://…")` が実行時に失敗 + `[HostCore]` ヒントを出力（ビルドは通る） |
+| `WiFiClientSecure`（TLS） | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` は `WiFiClient` を継承し、ボードメニュー `tls=openssl` 選択時に OpenSSL を使用（Linux `libssl-dev` 3.0.x と Windows MSYS2 UCRT64 `openssl` 3.5.2 で動作確認済）。`tls=disabled`（デフォルト）でもクラス自体はコンパイル可能で、`connect()` が 0 を返し `[HostCore]` ヒントを出力（ビルドは常に通る）。証明書検証は host では常時スキップ（実機テストの責務）。`setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` 等は no-op で受理。macOS は OpenSSL バックエンドの対象外（追加の `-I` / `-L` 解決が必要）。mbedTLS をソース同梱した別リポジトリ版バックエンドは引き続き将来計画（OS パッケージ依存を回避できる代替手段として） |
+| `HTTPClient` | ✅ | ESP32 | `cores/host/HTTPClient.h`。`begin(url)` で `http://` は `WiFiClient`、`https://` は `WiFiClientSecure` を内部で自動選択（後者はボードメニュー `tls=openssl` が必要。未設定時は `begin("https://…")` が false を返し `[HostCore]` ヒントを出力）。サポート: `GET` / `POST` / `PUT` / `PATCH` / `sendRequest`、`addHeader`、`getString`（`Content-Length` と `Transfer-Encoding: chunked` の両方を decode）、`getStream` / `getStreamPtr`、`getSize`、`getLocation`、`setTimeout`、`setUserAgent`、`setAuthorization`。リダイレクト自動追従は `setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS / HTTPC_STRICT_FOLLOW_REDIRECTS / HTTPC_FORCE_FOLLOW_REDIRECTS)` + `setRedirectLimit(N)`（デフォルト無効・上限 10）で 301/302/303/307/308 に対応、絶対 URL とルート相対の `Location` の両方を解決、内部 client モードでは `http` ⇄ `https` の scheme 切替も透過、FORCE モードでは 301/302/303 の POST→GET ダウングレードを実施。**`addHeader` で追加した user header はリダイレクトを跨いで破棄される**（ESP32 Arduino HTTPClient v3.x と同じ挙動）。永続したい場合は DISABLE モードで 3xx を検出して手動で再リクエストする。接続戦略は毎リクエスト `Connection: close`（keep-alive 無し）。**未実装**: multipart、gzip、cookie、Basic 認証ヘルパ（`addHeader("Authorization", ...)` を直接使用） |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | 同上（`Server` の上の別ライブラリ） |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | 優先度低 |
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | 優先度低 |
@@ -142,8 +142,28 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
+            http_get, https_get, http_redirect
+  interop/  smoke, wifi_connect, https_get, http_redirect, http_chunked
 ```
+
+`runtime/`、`storage/`、`network/` は host 専用。`interop/` のスケッチ
+は host ランタイムと実 ESP32 シリコンの**両方で動く** — スケッチソース
+は両プロファイル間で完全に同一（`#ifdef` 不使用）。ESP32 で実行する
+場合:
+
+```bash
+cd tests
+uv run --env-file .env pytest --profile esp32 interop/
+```
+
+`.env` ファイルには `TEST_WIFI_SSID`、`TEST_WIFI_PASSWORD`、ESP32 用シ
+リアルポートを記載。ビルド時マクロ注入が必要なテスト（例: `wifi_connect`）
+は自身の `build_config.toml` でマッピングを宣言（`TEST_WIFI_SSID = "WIFI_SSID"`
+が `-DWIFI_SSID="..."` として渡る）。スケッチは `Serial.begin(115200); delay(5000);`
+で実機側の起動 settle 時間を確保 — host ランタイムでは `delay()` が
+`std::this_thread::sleep_for` の薄いラッパなので、同じソースが両ターゲット
+でクリーンに動作。
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい
 テストを追加するとマトリックスの 1 マスが緑になっていきます。
@@ -204,6 +224,41 @@ lang-ship:host:host
   ```
 
 macOS の `g++` は実体が Apple clang のことがありますが、GCC 互換コマンドとして利用できれば問題ありません。
+
+### オプション: OpenSSL（TLS / HTTPS 対応）
+
+ボードメニュー `tls=openssl` を選ぶ場合のみ必要（`WiFiClientSecure` と
+`https://` URL を扱う `HTTPClient` で使用）。スケッチが plain TCP / UDP /
+HTTP のみであればスキップして構いません。
+
+- Linux（Debian / Ubuntu）:
+  ```bash
+  sudo apt update
+  sudo apt install libssl-dev
+  ```
+
+- Linux（Fedora / RHEL / Rocky）:
+  ```bash
+  sudo dnf install openssl-devel
+  ```
+
+- Windows（MSYS2 UCRT64）:
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-openssl
+  ```
+
+- macOS: `tls=openssl` ボードオプションは**現状サポート外**です。リンクレ
+  シピが Homebrew 固有の `-I` / `-L` パスを未対応なため。将来対応予定。
+  当面 macOS では `tls=disabled` のスケッチをビルドしてください。
+
+dev パッケージをインストールした後の追加設定は不要 — ヘッダ・ライブラリ
+が toolchain のデフォルト探索パスに入ります。Arduino IDE の **Tools →
+TLS → OpenSSL** を選ぶ（もしくは FQBN に `tls=openssl` を付与、例:
+`lang-ship:host:host:tls=openssl`）で有効化されます。
+
+リンクが正しく通っているかは同梱の `TLSProbe` example スケッチで確認可能。
+OpenSSL に到達できれば `PROBE_RESULT=PASS`、できなければ `PROBE_RESULT=FAIL`
+（ヒント付き）を Serial 出力します。
 
 ## Arduino CLI での使い方
 
@@ -283,6 +338,27 @@ macOS の `g++` は実体が Apple clang のことがありますが、GCC 互�
    b'boot\n'
    b'rx:A\n'
    ```
+
+   raw TCP を喋れるツールなら何でも同じポートに繋げます。`HOST_ARDUINO_PORT=`
+   の値をコピーして、好きなツールで接続してください（以下の `34567` は
+   実際のポート番号に置き換える）:
+
+   ```bash
+   # nc — Linux / macOS は標準搭載、Windows は nmap か MSYS2 で導入
+   nc 127.0.0.1 34567
+
+   # socat — Linux / macOS（apt install socat / brew install socat）
+   socat - TCP:127.0.0.1:34567
+
+   # telnet — Windows は機能追加で有効化、macOS は brew、Linux は inetutils
+   telnet 127.0.0.1 34567
+
+   # PuTTY（Windows）— cmd / PowerShell からヘッドレスで起動可能
+   putty.exe -raw 127.0.0.1 34567
+   ```
+
+   TeraTerm（Windows GUI）: File → New Connection → TCP/IP、Service: Other、
+   TCP port#: 表示されたポート番号。
 
 ## TCP Serial ランタイム
 

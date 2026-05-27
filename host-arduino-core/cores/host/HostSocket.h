@@ -4,6 +4,22 @@
 // Shared POSIX / Winsock abstraction for host-arduino-core network classes.
 
 #ifdef _WIN32
+// Defensive: same windows.h-collision guards as Arduino.h, in case this
+// header is reached through an include chain that doesn't go via
+// Arduino.h. Idempotent — duplicates with Arduino.h are #ifndef-guarded.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOUSER
+#define NOUSER
+#endif
+#ifndef NOGDI
+#define NOGDI
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #define HOST_CLOSESOCKET closesocket

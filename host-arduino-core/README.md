@@ -79,8 +79,8 @@ Legend:
 | `Client` / `Server` (abstract) | ✅ | Arduino | `cores/host/Client.h`, `cores/host/Server.h` |
 | `WiFiClient` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; non-blocking socket; copy-shared via `shared_ptr` so `WiFiClient c = server.available();` works. `lastError()` exposes errno; misuse emits `[HostCore]` hints via `HostDiag` |
 | `WiFiServer` (TCP) | ✅ | Arduino / ESP32 | POSIX / Winsock backed; `begin(port)` with `port=0` lets the OS pick an ephemeral port (`port()` returns the resolved value); `available()` / `accept()` are non-blocking |
-| `WiFiClientSecure` (TLS) | 🔲 | ESP32 | API header lives in `cores/host`. TLS backend is undecided and two backends are planned in parallel, with priority TBD: **(A)** the `tls=openssl` board menu option dynamically links OpenSSL — verified on Linux today (`apt install libssl-dev`); Windows MSYS2 should work with the same flags but is untested; macOS needs additional `-I` / `-L` paths and is not in scope yet. **(B)** a separate repository providing an mbedTLS source-build library, pulled in via `sketch.yaml`'s `libraries:`. Either backend is enough for plain HTTPS access. The default board ships **without** TLS — `connect()` returns 0 and emits a `[HostCore]` hint; the build still succeeds. Certificate verification is always skipped on host (real-device test concern). To avoid include-path collisions with the ESP32 / ESP8266 cores, the backend-side header uses a distinct name (e.g. `HostTLSClient.h`) and `cores/host/WiFiClientSecure.h` delegates to it via `__has_include` |
-| `HTTPClient` | 🔲 | ESP32 | API header lives in `cores/host`. HTTP works whenever `WiFiClient` is available. HTTPS works only when a TLS backend (see `WiFiClientSecure`) is enabled; otherwise `begin("https://…")` fails at runtime with a `[HostCore]` hint and the build still succeeds |
+| `WiFiClientSecure` (TLS) | ✅ | ESP32 | `cores/host/WiFiClientSecure.h` extends `WiFiClient` and uses OpenSSL when the `tls=openssl` board menu option is selected (verified on Linux `libssl-dev` 3.0.x and Windows MSYS2 UCRT64 `openssl` 3.5.2). When `tls=disabled` (the default), the class still compiles — `connect()` returns 0 and emits a `[HostCore]` hint, the build always succeeds. Certificate verification is always skipped on host (real-device test concern); `setCACert` / `setCertificate` / `setPrivateKey` / `setInsecure` / `loadCACert(Stream&,size_t)` are no-op shims. macOS is out of scope for the OpenSSL backend (needs additional `-I` / `-L` paths). A future mbedTLS source-build library is still planned as an alternative backend that bypasses the OS-package dependency |
+| `HTTPClient` | ✅ | ESP32 | `cores/host/HTTPClient.h`. `begin(url)` auto-selects `WiFiClient` for `http://` and `WiFiClientSecure` for `https://` (the latter requires the `tls=openssl` board menu option; without it, `begin("https://…")` returns false and emits a `[HostCore]` hint). Supports `GET` / `POST` / `PUT` / `PATCH` / `sendRequest`, `addHeader`, `getString` (decodes both `Content-Length` and `Transfer-Encoding: chunked`), `getStream` / `getStreamPtr`, `getSize`, `getLocation`, `setTimeout`, `setUserAgent`, `setAuthorization`. Redirect following via `setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS / HTTPC_STRICT_FOLLOW_REDIRECTS / HTTPC_FORCE_FOLLOW_REDIRECTS)` + `setRedirectLimit(N)` (default disabled, limit 10): handles 301/302/303/307/308, absolute and root-relative `Location`, scheme transitions between `http` ⇄ `https` in internal-client mode, RFC-style POST→GET downgrade for 301/302/303 in FORCE mode. **User-added request headers (`addHeader` values) are dropped across redirects**, matching ESP32 Arduino HTTPClient v3.x — sketches that need persistent headers should set DISABLE mode, observe the 3xx, and re-issue manually. Connection strategy is `Connection: close` per request — no keep-alive. **Not implemented**: multipart, gzip, cookies, basic-auth helpers (use `addHeader("Authorization", ...)` directly) |
 | `WebServer` / `AsyncWebServer` | ⛔ | ESP32 | same — separate library on top of `Server` |
 | `ESPmDNS` / `DNSServer` | 🔲 | ESP32 | low priority |
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | low priority |
@@ -142,8 +142,29 @@ tests/
   runtime/  smoke, timing, print_api
   storage/  fs
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
-            tcp_echo, tcp_client, tls_openssl
+            tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
+            http_get, https_get, http_redirect
+  interop/  smoke, wifi_connect, https_get, http_redirect, http_chunked
 ```
+
+`runtime/`, `storage/`, and `network/` are host-only. `interop/` sketches
+build and run on **both** the host runtime and real ESP32 silicon — the
+sketch source is identical across the two profiles (no `#ifdef`). Run
+them against ESP32 with:
+
+```bash
+cd tests
+uv run --env-file .env pytest --profile esp32 interop/
+```
+
+The `.env` file holds `TEST_WIFI_SSID`, `TEST_WIFI_PASSWORD`, and the
+ESP32 serial port. Tests that need build-time injection (e.g.
+`wifi_connect`) declare the mapping in their own `build_config.toml`
+(`TEST_WIFI_SSID = "WIFI_SSID"` → `-DWIFI_SSID="..."`). Sketches use
+`Serial.begin(115200); delay(5000);` to satisfy the real-silicon
+boot-up settling window — `delay()` on the host runtime is just
+`std::this_thread::sleep_for`, so the same source compiles and runs
+cleanly on both targets.
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
 square in the matrix goes green.
@@ -204,6 +225,43 @@ This package does not install compilers, linkers, or other build tools through B
   ```
 
 On macOS, `g++` is often Apple clang behind a GCC-compatible command name. That is acceptable for this core.
+
+### Optional: OpenSSL (for TLS / HTTPS support)
+
+Only needed if you plan to select the `tls=openssl` board menu option
+(used by `WiFiClientSecure` and `HTTPClient` against `https://` URLs).
+Skip this step if your sketches stay on plain TCP / UDP / HTTP.
+
+- Linux (Debian / Ubuntu):
+  ```bash
+  sudo apt update
+  sudo apt install libssl-dev
+  ```
+
+- Linux (Fedora / RHEL / Rocky):
+  ```bash
+  sudo dnf install openssl-devel
+  ```
+
+- Windows (MSYS2 UCRT64):
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-openssl
+  ```
+
+- macOS: **not currently supported** for the `tls=openssl` board option.
+  The link recipe doesn't add the Homebrew-specific `-I` / `-L` paths
+  yet. Tracked for a future revision; in the meantime, build `tls=disabled`
+  sketches on macOS.
+
+After installing the dev package, no further configuration is needed —
+the headers and libraries land in the default include / library search
+paths of the toolchain. Select **Tools → TLS → OpenSSL** in the Arduino
+IDE (or set `tls=openssl` on the FQBN, e.g.
+`lang-ship:host:host:tls=openssl`) to opt in.
+
+Verify the link wiring with the included `TLSProbe` example sketch —
+it prints `PROBE_RESULT=PASS` when OpenSSL is reachable and reports
+`PROBE_RESULT=FAIL` (with a hint) otherwise.
 
 ## Arduino CLI Workflow
 
@@ -283,6 +341,27 @@ On macOS, `g++` is often Apple clang behind a GCC-compatible command name. That 
    b'boot\n'
    b'rx:A\n'
    ```
+
+   Any tool that speaks raw TCP works against the same port. Copy the
+   `HOST_ARDUINO_PORT=` value and connect with whatever is handy
+   (substitute `34567` below with the actual port):
+
+   ```bash
+   # nc — preinstalled on Linux / macOS; on Windows via nmap or MSYS2
+   nc 127.0.0.1 34567
+
+   # socat — Linux / macOS (apt install socat / brew install socat)
+   socat - TCP:127.0.0.1:34567
+
+   # telnet — Windows optional feature; macOS via brew; Linux inetutils
+   telnet 127.0.0.1 34567
+
+   # PuTTY (Windows) — works headless from cmd / PowerShell
+   putty.exe -raw 127.0.0.1 34567
+   ```
+
+   TeraTerm (Windows GUI): File → New Connection → TCP/IP, Service: Other,
+   TCP port#: the printed value.
 
 ## TCP Serial Runtime
 
