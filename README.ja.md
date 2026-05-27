@@ -225,6 +225,41 @@ lang-ship:host:host
 
 macOS の `g++` は実体が Apple clang のことがありますが、GCC 互換コマンドとして利用できれば問題ありません。
 
+### オプション: OpenSSL（TLS / HTTPS 対応）
+
+ボードメニュー `tls=openssl` を選ぶ場合のみ必要（`WiFiClientSecure` と
+`https://` URL を扱う `HTTPClient` で使用）。スケッチが plain TCP / UDP /
+HTTP のみであればスキップして構いません。
+
+- Linux（Debian / Ubuntu）:
+  ```bash
+  sudo apt update
+  sudo apt install libssl-dev
+  ```
+
+- Linux（Fedora / RHEL / Rocky）:
+  ```bash
+  sudo dnf install openssl-devel
+  ```
+
+- Windows（MSYS2 UCRT64）:
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-openssl
+  ```
+
+- macOS: `tls=openssl` ボードオプションは**現状サポート外**です。リンクレ
+  シピが Homebrew 固有の `-I` / `-L` パスを未対応なため。将来対応予定。
+  当面 macOS では `tls=disabled` のスケッチをビルドしてください。
+
+dev パッケージをインストールした後の追加設定は不要 — ヘッダ・ライブラリ
+が toolchain のデフォルト探索パスに入ります。Arduino IDE の **Tools →
+TLS → OpenSSL** を選ぶ（もしくは FQBN に `tls=openssl` を付与、例:
+`lang-ship:host:host:tls=openssl`）で有効化されます。
+
+リンクが正しく通っているかは同梱の `TLSProbe` example スケッチで確認可能。
+OpenSSL に到達できれば `PROBE_RESULT=PASS`、できなければ `PROBE_RESULT=FAIL`
+（ヒント付き）を Serial 出力します。
+
 ## Arduino CLI での使い方
 
 1. Boards Manager index を登録します。

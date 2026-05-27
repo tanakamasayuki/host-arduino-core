@@ -226,6 +226,43 @@ This package does not install compilers, linkers, or other build tools through B
 
 On macOS, `g++` is often Apple clang behind a GCC-compatible command name. That is acceptable for this core.
 
+### Optional: OpenSSL (for TLS / HTTPS support)
+
+Only needed if you plan to select the `tls=openssl` board menu option
+(used by `WiFiClientSecure` and `HTTPClient` against `https://` URLs).
+Skip this step if your sketches stay on plain TCP / UDP / HTTP.
+
+- Linux (Debian / Ubuntu):
+  ```bash
+  sudo apt update
+  sudo apt install libssl-dev
+  ```
+
+- Linux (Fedora / RHEL / Rocky):
+  ```bash
+  sudo dnf install openssl-devel
+  ```
+
+- Windows (MSYS2 UCRT64):
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-openssl
+  ```
+
+- macOS: **not currently supported** for the `tls=openssl` board option.
+  The link recipe doesn't add the Homebrew-specific `-I` / `-L` paths
+  yet. Tracked for a future revision; in the meantime, build `tls=disabled`
+  sketches on macOS.
+
+After installing the dev package, no further configuration is needed —
+the headers and libraries land in the default include / library search
+paths of the toolchain. Select **Tools → TLS → OpenSSL** in the Arduino
+IDE (or set `tls=openssl` on the FQBN, e.g.
+`lang-ship:host:host:tls=openssl`) to opt in.
+
+Verify the link wiring with the included `TLSProbe` example sketch —
+it prints `PROBE_RESULT=PASS` when OpenSSL is reachable and reports
+`PROBE_RESULT=FAIL` (with a hint) otherwise.
+
 ## Arduino CLI Workflow
 
 1. Register the Boards Manager index:
