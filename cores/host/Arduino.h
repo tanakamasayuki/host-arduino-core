@@ -1,6 +1,32 @@
 #ifndef HOST_ARDUINO_H
 #define HOST_ARDUINO_H
 
+// On Windows, prevent <windows.h> (pulled in transitively by openssl,
+// winsock, SDL, etc.) from declaring identifiers that collide with the
+// Arduino API. Must precede every other include in this file so the
+// guards are in effect by the time any header chain reaches windows.h.
+//
+//   NOUSER        — skip <winuser.h>, which declares `struct INPUT`
+//                   (we use INPUT as a pinMode constant).
+//   WIN32_LEAN_AND_MEAN — also drops RPC, which declares
+//                   `typedef unsigned char boolean` (we use bool).
+//   NOGDI         — drops GDI; not strictly required, just lighter.
+//   NOMINMAX      — drops min/max macros; we provide templates.
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOUSER
+#define NOUSER
+#endif
+#ifndef NOGDI
+#define NOGDI
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
