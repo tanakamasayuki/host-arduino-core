@@ -62,7 +62,7 @@ Legend:
 |-----|--------|--------|-------|
 | `FS` / `File` (read / write / seek / size / openNextFile) | ✅ | Arduino | wraps `<cstdio>` |
 | `LittleFS` / `SPIFFS` / `FFat` / `SD` | ✅ | ESP32 | all backed by a directory next to the executable; no flash quotas / format semantics |
-| `Preferences` (NVS) | 🔲 | ESP32 | could be backed by a file next to the executable |
+| `Preferences` (NVS) | ✅ | ESP32 | in-memory only (see ESP-IDF row for details) |
 | `EEPROM` | 🔲 | Arduino | same approach as `Preferences` |
 
 ### Networking
@@ -111,7 +111,7 @@ care about pin state should mock at the sketch layer.
 | `esp_log` / `ESP_LOG*` / `log_e` / `log_i` / `log_w` / `log_d` / `log_v` macros | ✅ | ESP-IDF | host stubs only — `CORE_DEBUG_LEVEL` is fixed at `ARDUHAL_LOG_LEVEL_NONE` (0) and all macros expand to a `(void)sizeof(...)` discard (no output, no unused-variable warnings). `esp_log_level_set` is a no-op; `esp_log_level_get` always returns `ESP_LOG_NONE`. Rationale: mixing log output into `dut.expect` streams hurts test readability, and Arduino's own convention is `Serial.print` for diagnostics |
 | `esp_timer` | ✅ | ESP-IDF | `esp_timer_get_time()` returns µs since first call. Full `create` / `start_once` / `start_periodic` / `stop` / `delete` / `is_active` surface is backed by one `std::thread` per timer with a `condition_variable` for scheduling. No real-time guarantees |
 | `esp_random` / `esp_fill_random` | ✅ | ESP-IDF | backed by `std::mt19937` seeded from `std::random_device`. Non-cryptographic — same usage class as the silicon's hardware RNG in Arduino sketches |
-| `Preferences` (NVS) | 🔲 | ESP32 | see Filesystem row |
+| `Preferences` (NVS) | ✅ | ESP32 | in-memory only. Full put/get surface for scalar, string, and bytes types. Reading a missing key (or a key stored with a different type) returns the supplied default. Values do not persist across sketch exits — boot-crossing behavior must be verified via interop against real silicon |
 | Raw `nvs_flash_*` API | ⛔ | ESP-IDF | use `Preferences` instead |
 | `Update` / OTA | ⛔ | ESP32 | meaningless on host |
 | BLE / Classic Bluetooth | ⛔ | ESP32 | no plan |

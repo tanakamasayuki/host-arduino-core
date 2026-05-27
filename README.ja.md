@@ -62,7 +62,7 @@ ESP32 拡張かを示します。
 |-----|------|------|------|
 | `FS` / `File`（read / write / seek / size / openNextFile） | ✅ | Arduino | `<cstdio>` ラッパ |
 | `LittleFS` / `SPIFFS` / `FFat` / `SD` | ✅ | ESP32 | すべて実行ファイル隣のディレクトリにマップ。フラッシュ容量制限やフォーマット意味論は再現しない |
-| `Preferences`（NVS） | 🔲 | ESP32 | 実行ファイル隣のファイルでバックアップ可能 |
+| `Preferences`（NVS） | ✅ | ESP32 | オンメモリのみ（詳細は ESP-IDF 節を参照） |
 | `EEPROM` | 🔲 | Arduino | `Preferences` と同じ方針 |
 
 ### ネットワーク
@@ -112,7 +112,7 @@ ESP32 拡張かを示します。
 | `esp_log` / `ESP_LOG*` / `log_e` / `log_i` / `log_w` / `log_d` / `log_v` マクロ | ✅ | ESP-IDF | host スタブのみ — `CORE_DEBUG_LEVEL` は `ARDUHAL_LOG_LEVEL_NONE` (0) 固定、全マクロは `(void)sizeof(...)` で引数を捨てる（出力なし・未使用変数警告なし）。`esp_log_level_set` は no-op、`esp_log_level_get` は常に `ESP_LOG_NONE`。理由: ログ出力が `dut.expect` ストリームに混ざるとテストの読みづらさにつながる + Arduino 流儀では診断用には `Serial.print` を使う |
 | `esp_timer` | ✅ | ESP-IDF | `esp_timer_get_time()` は最初の呼び出しからの µs を返す。`create` / `start_once` / `start_periodic` / `stop` / `delete` / `is_active` の高レベル API は timer ごとに `std::thread` 1 本 + `condition_variable` でスケジューリング。リアルタイム保証なし |
 | `esp_random` / `esp_fill_random` | ✅ | ESP-IDF | `std::random_device` で seed した `std::mt19937` でバック。暗号用途ではないが、Arduino スケッチで silicon の HW RNG が使われる用途（jitter / seed / バリエーション）には十分 |
-| `Preferences`（NVS） | 🔲 | ESP32 | ファイルシステム節を参照 |
+| `Preferences`（NVS） | ✅ | ESP32 | オンメモリのみ。scalar / string / bytes 各種 put/get を完備。キー不在（または別型で保存済み）の場合はデフォルト値を返す。値はスケッチ終了で消える — boot 跨ぎ動作は実機との interop で検証する必要あり |
 | 生の `nvs_flash_*` API | ⛔ | ESP-IDF | `Preferences` 経由で十分 |
 | `Update` / OTA | ⛔ | ESP32 | host では意味が無い |
 | BLE / Classic Bluetooth | ⛔ | ESP32 | 予定無し |
