@@ -284,6 +284,30 @@ On macOS, `g++` is often Apple clang behind a GCC-compatible command name. That 
    b'rx:A\n'
    ```
 
+   Any tool that speaks raw TCP works against the same port. Copy the
+   `HOST_ARDUINO_PORT=` value and connect with whatever is handy
+   (substitute `34567` below with the actual port):
+
+   ```bash
+   # nc — preinstalled on Linux / macOS; on Windows via nmap or MSYS2
+   nc 127.0.0.1 34567
+
+   # socat — Linux / macOS (apt install socat / brew install socat)
+   socat - TCP:127.0.0.1:34567
+
+   # curl — all three OSes, no extra install
+   curl telnet://127.0.0.1:34567
+
+   # telnet — Windows optional feature; macOS via brew; Linux inetutils
+   telnet 127.0.0.1 34567
+
+   # PuTTY (Windows) — works headless from cmd / PowerShell
+   putty.exe -raw 127.0.0.1 34567
+   ```
+
+   TeraTerm (Windows GUI): File → New Connection → TCP/IP, Service: Other,
+   TCP port#: the printed value.
+
 ## TCP Serial Runtime
 
 When the executable is started without internal runtime arguments, it acts as a launcher:

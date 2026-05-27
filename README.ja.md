@@ -284,6 +284,30 @@ macOS の `g++` は実体が Apple clang のことがありますが、GCC 互�
    b'rx:A\n'
    ```
 
+   raw TCP を喋れるツールなら何でも同じポートに繋げます。`HOST_ARDUINO_PORT=`
+   の値をコピーして、好きなツールで接続してください（以下の `34567` は
+   実際のポート番号に置き換える）:
+
+   ```bash
+   # nc — Linux / macOS は標準搭載、Windows は nmap か MSYS2 で導入
+   nc 127.0.0.1 34567
+
+   # socat — Linux / macOS（apt install socat / brew install socat）
+   socat - TCP:127.0.0.1:34567
+
+   # curl — 3 OS とも標準で同梱、追加インストール不要
+   curl telnet://127.0.0.1:34567
+
+   # telnet — Windows は機能追加で有効化、macOS は brew、Linux は inetutils
+   telnet 127.0.0.1 34567
+
+   # PuTTY（Windows）— cmd / PowerShell からヘッドレスで起動可能
+   putty.exe -raw 127.0.0.1 34567
+   ```
+
+   TeraTerm（Windows GUI）: File → New Connection → TCP/IP、Service: Other、
+   TCP port#: 表示されたポート番号。
+
 ## TCP Serial ランタイム
 
 実行ファイルを通常起動すると、まずランチャーとして動作します。
