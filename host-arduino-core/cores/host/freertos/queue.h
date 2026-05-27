@@ -1,0 +1,4 @@
+#ifndef HOST_ARDUINO_FREERTOS_QUEUE_H
+#define HOST_ARDUINO_FREERTOS_QUEUE_H
+#include "FreeRTOS.h"
+#endif

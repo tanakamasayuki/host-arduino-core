@@ -1,0 +1,4 @@
+#ifndef HOST_ARDUINO_FREERTOS_TASK_H
+#define HOST_ARDUINO_FREERTOS_TASK_H
+#include "FreeRTOS.h"
+#endif

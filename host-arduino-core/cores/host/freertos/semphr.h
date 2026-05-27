@@ -1,0 +1,4 @@
+#ifndef HOST_ARDUINO_FREERTOS_SEMPHR_H
+#define HOST_ARDUINO_FREERTOS_SEMPHR_H
+#include "FreeRTOS.h"
+#endif
