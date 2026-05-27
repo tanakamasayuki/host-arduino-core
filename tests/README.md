@@ -55,6 +55,30 @@ Each leaf directory is one test target (sketch + `sketch.yaml` +
   Arduino API surface (status codes, body bytes, Serial output order)
   counts as evidence.
 
+### Two-tier rule (host first → interop on top)
+
+When adding tests for a new feature or bug fix, **cover it under a
+host-only category (`runtime/` / `storage/` / `network/`) first, then
+add an `interop/` test only if real-silicon verification is needed**.
+
+- **Interop tests do not replace host tests.** Don't skip the
+  host-side test just because you added an interop one.
+- **Content overlap is fine.** Host-side tests exercise edge cases
+  and internal behavior against a local fixture; interop tests
+  exercise the same feature against real hardware and an external
+  service, asserting only surface parity. Hitting the same code path
+  through two paths is the point.
+- **If a check is reproducible on the host, the host-only test is
+  enough.** Only add `interop/` for things that can't be meaningfully
+  exercised without real silicon — host-vs-ESP32 divergence-prone
+  behavior like TLS handshake, redirect following, chunked decoding.
+
+Rationale: without a host counterpart, a code path is unprotected
+against every-commit regressions. The only failure mode `interop/`
+exclusively catches is "works on host, breaks on silicon" — for
+everything else, the host-only test is the faster and more reliable
+signal.
+
 ## Criteria for adding a new interop test
 
 Before adding a test under `interop/`, check it against this list:

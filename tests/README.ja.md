@@ -52,6 +52,25 @@ tests/
   対象外。Arduino API の表面上の動作（status code、body bytes、Serial への
   出力順序）だけが検証範囲
 
+### 二段構えの原則（host 先 → interop 追加）
+
+新機能やバグ修正をテストする順序は **host 専用カテゴリ (`runtime/` /
+`storage/` / `network/`) でまずカバーする → 実機での検証が必要そうなら
+`interop/` にも追加する** の 2 段階。
+
+- **interop テストは host テストを置き換えない**。`interop/` に書いた
+  からといって host 側を省略してはいけない
+- **内容が重複してよい**。host 側はローカル fixture を相手に edge case や
+  内部挙動まで網羅、interop 側は同じ機能を実機 + 外部サービスで表面同値性
+  だけ確認、という役割分担。同じコードパスを 2 経路で叩くこと自体が価値
+- **host 側で再現できる検証は host 側だけで足りる**。実機を相手にしないと
+  意味がない（TLS handshake、リダイレクト追従、chunked decode 等の host vs
+  ESP32 差が出やすい挙動）場合だけ interop を追加
+
+理由: host 側に対応テストがないと、毎コミット自動回帰で何も守られない
+領域ができる。interop だけで気付ける問題は基本的に「host で動くのに実機で
+壊れる」差分だけで、それ以外の通常バグは host 側で検出するのが効率的。
+
 ## interop テストを追加する基準
 
 新しい interop テストを書くべきか迷ったら以下に照らしてください：
