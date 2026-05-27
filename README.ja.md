@@ -110,8 +110,8 @@ ESP32 拡張かを示します。
 |-----|------|------|------|
 | FreeRTOS（`xTaskCreate` / `vTaskDelay` / キュー / セマフォ / ミューテックス / Notify） | ✅ | ESP-IDF | `std::thread` / `std::mutex` / `std::condition_variable` でバック。優先度・コア固定・スタックサイズは引数として受けるが無視。`portENTER_CRITICAL` はグローバル recursive mutex に縮退。`vTaskDelete(NULL)` は終了フラグを立てて return するだけ — タスク関数側がフラグを観測して return する想定（別スレッドを移植性のある方法で強制終了できないため）。非ゴール: 優先度ベーススケジューリング、コア固定、`vTaskSuspend` の即時性、スタックオーバーフロー検出、`portENTER_CRITICAL` の割り込み禁止意味論。これらに依存するスケッチは host テスト向きではない |
 | `esp_log` / `ESP_LOG*` / `log_e` / `log_i` / `log_w` / `log_d` / `log_v` マクロ | ✅ | ESP-IDF | host スタブのみ — `CORE_DEBUG_LEVEL` は `ARDUHAL_LOG_LEVEL_NONE` (0) 固定、全マクロは `(void)sizeof(...)` で引数を捨てる（出力なし・未使用変数警告なし）。`esp_log_level_set` は no-op、`esp_log_level_get` は常に `ESP_LOG_NONE`。理由: ログ出力が `dut.expect` ストリームに混ざるとテストの読みづらさにつながる + Arduino 流儀では診断用には `Serial.print` を使う |
-| `esp_timer` | 🔲 | ESP-IDF | `millis` / `micros` の薄いラッパで対応可 |
-| `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | 簡単 |
+| `esp_timer` | ✅ | ESP-IDF | `esp_timer_get_time()` は最初の呼び出しからの µs を返す。`create` / `start_once` / `start_periodic` / `stop` / `delete` / `is_active` の高レベル API は timer ごとに `std::thread` 1 本 + `condition_variable` でスケジューリング。リアルタイム保証なし |
+| `esp_random` / `esp_fill_random` | ✅ | ESP-IDF | `std::random_device` で seed した `std::mt19937` でバック。暗号用途ではないが、Arduino スケッチで silicon の HW RNG が使われる用途（jitter / seed / バリエーション）には十分 |
 | `Preferences`（NVS） | 🔲 | ESP32 | ファイルシステム節を参照 |
 | 生の `nvs_flash_*` API | ⛔ | ESP-IDF | `Preferences` 経由で十分 |
 | `Update` / OTA | ⛔ | ESP32 | host では意味が無い |

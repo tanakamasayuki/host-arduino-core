@@ -123,6 +123,8 @@ extern void loop();
 
 #include "HostRuntime.h"
 #include "esp32-hal-log.h"
+#include "esp_random.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"

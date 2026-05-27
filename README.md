@@ -109,8 +109,8 @@ care about pin state should mock at the sketch layer.
 |-----|--------|--------|-------|
 | FreeRTOS (`xTaskCreate`, `vTaskDelay`, queues, semaphores, mutexes, notifications) | ✅ | ESP-IDF | backed by `std::thread` / `std::mutex` / `std::condition_variable`. Priority, core affinity, and stack size arguments are accepted and ignored. `portENTER_CRITICAL` collapses to a global recursive mutex. `vTaskDelete(NULL)` sets an exit flag and returns; the task function is expected to observe it and return — we cannot portably terminate another thread. Non-goals: priority-based scheduling, core pinning, `vTaskSuspend` immediacy, stack-overflow detection, real interrupt masking — sketches that rely on those should not be tested on host |
 | `esp_log` / `ESP_LOG*` / `log_e` / `log_i` / `log_w` / `log_d` / `log_v` macros | ✅ | ESP-IDF | host stubs only — `CORE_DEBUG_LEVEL` is fixed at `ARDUHAL_LOG_LEVEL_NONE` (0) and all macros expand to a `(void)sizeof(...)` discard (no output, no unused-variable warnings). `esp_log_level_set` is a no-op; `esp_log_level_get` always returns `ESP_LOG_NONE`. Rationale: mixing log output into `dut.expect` streams hurts test readability, and Arduino's own convention is `Serial.print` for diagnostics |
-| `esp_timer` | 🔲 | ESP-IDF | thin wrapper over `millis` / `micros` |
-| `esp_random` / `esp_fill_random` | 🔲 | ESP-IDF | trivial |
+| `esp_timer` | ✅ | ESP-IDF | `esp_timer_get_time()` returns µs since first call. Full `create` / `start_once` / `start_periodic` / `stop` / `delete` / `is_active` surface is backed by one `std::thread` per timer with a `condition_variable` for scheduling. No real-time guarantees |
+| `esp_random` / `esp_fill_random` | ✅ | ESP-IDF | backed by `std::mt19937` seeded from `std::random_device`. Non-cryptographic — same usage class as the silicon's hardware RNG in Arduino sketches |
 | `Preferences` (NVS) | 🔲 | ESP32 | see Filesystem row |
 | Raw `nvs_flash_*` API | ⛔ | ESP-IDF | use `Preferences` instead |
 | `Update` / OTA | ⛔ | ESP32 | meaningless on host |

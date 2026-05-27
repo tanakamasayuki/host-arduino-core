@@ -1,0 +1,10 @@
+def test_esp_timer(dut):
+    dut.expect("TEST start esp_timer", timeout=10)
+    dut.expect("monotonic=ok", timeout=5)
+    dut.expect("delay_lower=ok", timeout=5)
+    dut.expect("delay_upper=ok", timeout=5)
+    dut.expect("create=ok", timeout=5)
+    dut.expect("fired_lower=ok", timeout=10)
+    dut.expect("fired_upper=ok", timeout=5)
+    dut.expect("after_stop=ok", timeout=5)
+    dut.expect("TEST done", timeout=5)
