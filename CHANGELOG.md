@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.2.0
 - (EN) Extracted shared drawing logic into `tests/common_libs/gfx_demo/` (Arduino library form, referenced from each smoke's `sketch.yaml` via `libraries: - dir: ../../common_libs/gfx_demo`). Each graphics smoke now exercises `drawHome` on the main panel plus a fixed list of sizes / rotations / color-depths via `LGFX_Sprite`. The library's `.cpp` uses `__has_include` to pick between M5Unified / M5GFX / LovyanGFX; the `.h` stays neutral and assumes the caller already included its graphics library. Pattern documented in `tests/README.{md,ja.md}`.
 - (JA) 共有する描画ロジックを `tests/common_libs/gfx_demo/` に切り出し（Arduino ライブラリ形式、各 smoke の `sketch.yaml` から `libraries: - dir: ../../common_libs/gfx_demo` で参照）。各 graphics smoke は `drawHome` をメインパネル + `LGFX_Sprite` の複数サイズ / 回転 / 色深度ケースに当てる。`.cpp` だけ `__has_include` で M5Unified / M5GFX / LovyanGFX を切替、`.h` は中立（呼び出し側が gfx lib を先に include する前提）。`tests/README.{md,ja.md}` に解説を追記。
 - (EN) Replaced the `host_noarduino` core and `menu.arduino` / `menu.sdl2` options with a single `menu.mode` (`default` / `lgfx`). `mode=lgfx` runs LovyanGFX / M5GFX / M5Unified sketches headlessly on the existing `host` core. Added smoke tests `tests/graphics/{lovyangfx,m5gfx,m5unified}_smoke`. Also guarded `ESP_LOG_*` constants and `esp_log_level_t` in `cores/host/esp32-hal-log.h` behind `#ifdef ARDUINO` so M5Unified's own `esp_log_level_t` enum doesn't collide (same pattern as the pgmspace.h fix). When the sketch's loop exits (pytest dut disconnects), the core pushes an `SDL_QUIT` event so Panel_sdl::main can release — without that nudge the dummy video driver never delivers a quit event on its own and the process hangs.
