@@ -1,5 +1,4 @@
-menu.arduino=Arduino
-menu.sdl2=SDL2
+menu.mode=Mode
 menu.tls=TLS
 
 host.name=Host
@@ -8,19 +7,11 @@ host.build.board=HOST
 host.upload.tool.default=run
 host.upload.protocol=run
 
-host.menu.arduino=enabled
-host.menu.arduino.enabled=Enabled
-host.menu.arduino.disabled=Disabled
-host.menu.arduino.enabled.build.core=host
-host.menu.arduino.enabled.build.extra_flags_arduino=-DARDUINO
-host.menu.arduino.disabled.build.core=host_noarduino
-host.menu.arduino.disabled.build.extra_flags_arduino=
-
-host.menu.sdl2=disabled
-host.menu.sdl2.disabled=Disabled
-host.menu.sdl2.enabled=Enabled
-host.menu.sdl2.disabled.build.extra_flags_sdl2=
-host.menu.sdl2.enabled.build.extra_flags_sdl2=-DNATIVE_USE_SDL2 -lSDL2
+host.menu.mode=default
+host.menu.mode.default=Default (Arduino host)
+host.menu.mode.lgfx=LovyanGFX / M5GFX headless
+host.menu.mode.default.build.extra_flags_mode=-DARDUINO
+host.menu.mode.lgfx.build.extra_flags_mode=-DNATIVE_USE_SDL2 -lSDL2
 
 host.menu.tls=disabled
 host.menu.tls.disabled=Disabled

@@ -34,7 +34,17 @@ class __FlashStringHelper;
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
 #define pgm_read_word(addr) (*(const unsigned short *)(addr))
 #define pgm_read_dword(addr) (*(const unsigned long *)(addr))
-#define pgm_read_ptr(addr) (*(const void * const *)(addr))
+#define pgm_read_ptr(addr) (*(const void *const *)(addr))
+
+// memcpy_P / memcmp_P / str*_P are guarded on ARDUINO so they only get
+// defined for the default Arduino-host build. When ARDUINO is not
+// defined (e.g., mode=lgfx for LovyanGFX/M5GFX headless), the LovyanGFX
+// utility/pgmspace.h provides matching `static inline` functions inside
+// `#ifndef ARDUINO`; redefining them here as macros would mangle that
+// declaration (e.g. `static inline void* memcpy_P(...)` would expand to
+// `static inline void* memcpy(...)`) and cascade into unrelated template
+// errors in result.hpp.
+#ifdef ARDUINO
 #define memcpy_P(dest, src, n) memcpy((dest), (src), (n))
 #define memcmp_P(s1, s2, n) memcmp((s1), (s2), (n))
 #define strlen_P strlen
@@ -45,5 +55,6 @@ class __FlashStringHelper;
 #define strcmp_P strcmp
 #define strncmp_P strncmp
 #define strstr_P strstr
+#endif
 
 #endif

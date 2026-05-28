@@ -123,8 +123,8 @@ ESP32 拡張かを示します。
 
 | API | 状況 | 備考 |
 |-----|------|------|
-| M5GFX フレームバッファモード + 画面キャプチャ | 🔲 | フレームバッファに描画し、画像ファイルとして保存 |
-| LovyanGFX / TFT_eSPI | 🔲 | M5GFX と同じ方針 |
+| M5GFX / LovyanGFX ヘッドレスバックエンド | ✅ | FQBN に `mode=lgfx` を指定（例: `lang-ship:host:host:mode=lgfx`）すると有効。`main()` で `SDL_VIDEODRIVER=dummy` を立てて `Panel_sdl::main` に普通の `setup()`/`loop()` をワーカースレッドから駆動させる構造。`ARDUINO` は未定義のままなので M5GFX/LovyanGFX が `device.hpp` で SDL バックエンドを選ぶ。スケッチは通常通り `Serial.print()` を TCP runtime に流せ、`gfx.createPng()` でフレームを PNG として保存して assert 可能（`tests/graphics/lgfx_smoke` 参照）。リンクは `-lSDL2` 自動付加。Linux は `libsdl2-dev` を導入。M5GFX もしくは LovyanGFX ライブラリがスケッチに含まれている必要あり（コア側は `lgfx::v1::Panel_sdl::main` を forward-declare してリンク時に解決） |
+| TFT_eSPI | 🔲 | 計画なし |
 
 ### 「Planned」の意味
 
@@ -259,6 +259,48 @@ TLS → OpenSSL** を選ぶ（もしくは FQBN に `tls=openssl` を付与、�
 リンクが正しく通っているかは同梱の `TLSProbe` example スケッチで確認可能。
 OpenSSL に到達できれば `PROBE_RESULT=PASS`、できなければ `PROBE_RESULT=FAIL`
 （ヒント付き）を Serial 出力します。
+
+### オプション: SDL2（LovyanGFX / M5GFX ヘッドレス描画）
+
+ボードメニュー `mode=lgfx` を選ぶ場合のみ必要（M5GFX / LovyanGFX /
+M5Unified スケッチを host PC 上でオフスクリーン描画する用途、CI で
+レイアウト確認するなどに使う）。スケッチがグラフィックを触らない場合は
+スキップして構いません。
+
+- Linux（Debian / Ubuntu）:
+  ```bash
+  sudo apt update
+  sudo apt install libsdl2-dev
+  ```
+
+- Linux（Fedora / RHEL / Rocky）:
+  ```bash
+  sudo dnf install SDL2-devel
+  ```
+
+- Windows（MSYS2 UCRT64）:
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-SDL2
+  ```
+
+- macOS（Homebrew）:
+  ```bash
+  brew install sdl2
+  ```
+  リンクレシピが Homebrew 固有の `-I` / `-L` パスを追加していないため、
+  macOS の `mode=lgfx` ビルドは現状未検証（`tls=openssl` と同じ注意）。
+
+dev パッケージをインストール後の追加設定は不要 — `-lSDL2` は
+`mode=lgfx` メニュー側で注入され、標準探索パスでヘッダも見つかります。
+Arduino IDE の **Tools → Mode → LovyanGFX / M5GFX headless** を選ぶ
+（もしくは FQBN に `mode=lgfx` を付与、例: `lang-ship:host:host:mode=lgfx`）
+で有効化されます。このモードでは SDL2 が常に `SDL_VIDEODRIVER=dummy` で
+動作するためウィンドウは出ず、出力は `gfx.createPng()` でディスクに
+書き出して確認します。
+
+リンクが正しく通っているかは `tests/graphics/lovyangfx_smoke`
+（もしくは `m5gfx_smoke` / `m5unified_smoke`）で確認可能 — 各テストが
+複数サイズの PNG を `output/` に生成します。
 
 ## Arduino CLI での使い方
 

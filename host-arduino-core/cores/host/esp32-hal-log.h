@@ -9,13 +9,20 @@
 // emitted at runtime. This is intentional: ESP_LOG output would mix with
 // pytest's `dut.expect` stream, and Arduino's own convention is to use
 // Serial.print for diagnostic output. There is no opt-in switch.
+//
+// The ESP_LOG_* level constants and `esp_log_level_t` type are guarded on
+// ARDUINO: when ARDUINO is undefined (e.g. mode=lgfx), libraries like
+// M5Unified ship their own `typedef enum { ESP_LOG_NONE, ... } esp_log_level_t`
+// and our `#define ESP_LOG_NONE 0` here would expand inside the enum body,
+// breaking the build. Sketches built without ARDUINO get those names from
+// the library instead.
 
 #ifndef ARDUHAL_LOG_LEVEL_NONE
-#define ARDUHAL_LOG_LEVEL_NONE    0
-#define ARDUHAL_LOG_LEVEL_ERROR   1
-#define ARDUHAL_LOG_LEVEL_WARN    2
-#define ARDUHAL_LOG_LEVEL_INFO    3
-#define ARDUHAL_LOG_LEVEL_DEBUG   4
+#define ARDUHAL_LOG_LEVEL_NONE 0
+#define ARDUHAL_LOG_LEVEL_ERROR 1
+#define ARDUHAL_LOG_LEVEL_WARN 2
+#define ARDUHAL_LOG_LEVEL_INFO 3
+#define ARDUHAL_LOG_LEVEL_DEBUG 4
 #define ARDUHAL_LOG_LEVEL_VERBOSE 5
 #endif
 
@@ -23,22 +30,27 @@
 #define CORE_DEBUG_LEVEL ARDUHAL_LOG_LEVEL_NONE
 #endif
 
+#ifdef ARDUINO
 #ifndef ESP_LOG_NONE
-#define ESP_LOG_NONE    0
-#define ESP_LOG_ERROR   1
-#define ESP_LOG_WARN    2
-#define ESP_LOG_INFO    3
-#define ESP_LOG_DEBUG   4
+#define ESP_LOG_NONE 0
+#define ESP_LOG_ERROR 1
+#define ESP_LOG_WARN 2
+#define ESP_LOG_INFO 3
+#define ESP_LOG_DEBUG 4
 #define ESP_LOG_VERBOSE 5
 #endif
 
 typedef int esp_log_level_t;
+#endif // ARDUINO
 
 // Discard all arguments without evaluating them, but reference each via
 // sizeof so the compiler still type-checks and "unused variable" warnings
 // stay quiet at the call site.
 #define HOST_ARDUINO_LOG_DISCARD(...) \
-    do { (void)sizeof(#__VA_ARGS__); } while (0)
+    do                                \
+    {                                 \
+        (void)sizeof(#__VA_ARGS__);   \
+    } while (0)
 
 #define log_v(...) HOST_ARDUINO_LOG_DISCARD(__VA_ARGS__)
 #define log_d(...) HOST_ARDUINO_LOG_DISCARD(__VA_ARGS__)
@@ -72,9 +84,11 @@ typedef int esp_log_level_t;
 #define ESP_DRAM_LOGD(tag, ...) HOST_ARDUINO_LOG_DISCARD(tag, __VA_ARGS__)
 #define ESP_DRAM_LOGV(tag, ...) HOST_ARDUINO_LOG_DISCARD(tag, __VA_ARGS__)
 
+#ifdef ARDUINO
 inline void esp_log_level_set(const char * /*tag*/, esp_log_level_t /*level*/) {}
 inline esp_log_level_t esp_log_level_get(const char * /*tag*/) { return ESP_LOG_NONE; }
 inline void esp_log_write(esp_log_level_t /*level*/, const char * /*tag*/, const char * /*format*/, ...) {}
 inline uint32_t esp_log_timestamp(void) { return 0; }
+#endif
 
 #endif // HOST_ARDUINO_ESP32_HAL_LOG_H
