@@ -124,6 +124,13 @@ If `<sketchbook>/hardware/lang-ship/host` already exists and points
 somewhere else (e.g. a manual install), the fixture fails fast — remove or
 repoint that entry before running.
 
+> **Platform**: the test suite is **Linux / macOS only**. The conftest
+> creates a symlink, which on Windows requires either Developer Mode or
+> administrator privileges; on a stock Windows session the fixture
+> raises `OSError` at session setup and no tests run. host-arduino-core
+> itself supports Windows at build / runtime — it's just the pytest
+> harness that does not.
+
 ### `.env` (interop only)
 
 Wi-Fi-using interop tests pull SSID / password from `.env` via
@@ -239,6 +246,14 @@ When a sketch needs to read fixture data or write generated artifacts:
   each test); a downstream project that doesn't already have a
   conftest can copy that hook as a starting point, or arrange the
   same cleanup with whatever fixture / setup mechanism it uses.
+  **Important**: `tests/conftest.py` also contains a session-scoped
+  symlink fixture that's specific to host-arduino-core's
+  develop-against-the-working-tree workflow. **Copy only the
+  `pytest_runtest_setup` (the output wipe) part — do NOT copy the
+  symlink fixture verbatim** unless you actually need the same
+  arduino-cli platform-overlay trick. The symlink fixture creates
+  directories under your sketchbook and can be left dangling if a
+  session dies unexpectedly.
 - The test then asserts on the file under `<sketch_dir>/output/<name>`.
 
 This keeps source files (`.ino`, `sketch.yaml`, `test_*.py`) and

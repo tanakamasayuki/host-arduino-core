@@ -111,6 +111,12 @@ uv sync          # もしくは: pip install -e .
 上書きしないための保護なので、事前に削除するか張り直してから実行してくだ
 さい。
 
+> **対応プラットフォーム**: テストスイートは **Linux / macOS のみ**。
+> conftest が symlink を貼るが、Windows では Developer Mode か
+> 管理者権限が無いと作成できず、通常 Windows 環境では session 開始時に
+> `OSError` で fixture が落ちる。host-arduino-core 本体は Windows でも
+> ビルド・実行可能だが、**pytest ハーネスは Windows 非対応**。
+
 ### `.env` の用意（interop のみ）
 
 `interop/` の WiFi 接続を伴うテストは、`.env` から SSID / パスワードを
@@ -229,6 +235,13 @@ esp32:
   実装している。下流プロジェクトに同等の conftest がない場合は、
   この実装を参考にコピーするか、使っている fixture / セットアップ
   機構で同じ事前クリーンアップを行う。
+  **注意**: `tests/conftest.py` には **session-scoped な symlink
+  fixture** も同居していて、これは host-arduino-core 固有の
+  「ワーキングツリーに対して開発したい」事情用の仕掛け。コピーする
+  なら **`pytest_runtest_setup` の output 削除部分だけ** にして、
+  symlink fixture をそのまま持っていかないこと。symlink fixture は
+  sketchbook 配下にディレクトリを作る上に、セッションが異常終了すると
+  シンボリックリンクが残留する危険がある。
 - テストはこの `<sketch_dir>/output/<name>` を assert する。
 
 これで「ソース（`.ino` / `sketch.yaml` / `test_*.py`）」と「生成物」が
