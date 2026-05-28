@@ -263,6 +263,50 @@ Verify the link wiring with the included `TLSProbe` example sketch —
 it prints `PROBE_RESULT=PASS` when OpenSSL is reachable and reports
 `PROBE_RESULT=FAIL` (with a hint) otherwise.
 
+### Optional: SDL2 (for headless LovyanGFX / M5GFX rendering)
+
+Only needed if you plan to select the `mode=lgfx` board menu option
+(used to run M5GFX / LovyanGFX / M5Unified sketches off-screen on the
+host PC, e.g. for CI-driven layout tests). Skip this step if your
+sketches don't touch graphics.
+
+- Linux (Debian / Ubuntu):
+  ```bash
+  sudo apt update
+  sudo apt install libsdl2-dev
+  ```
+
+- Linux (Fedora / RHEL / Rocky):
+  ```bash
+  sudo dnf install SDL2-devel
+  ```
+
+- Windows (MSYS2 UCRT64):
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-SDL2
+  ```
+
+- macOS (Homebrew):
+  ```bash
+  brew install sdl2
+  ```
+  The link recipe does not yet add Homebrew-specific `-I` / `-L` paths,
+  so macOS `mode=lgfx` builds are not officially verified — same caveat
+  as `tls=openssl`.
+
+After installing the dev package, no further configuration is needed —
+`-lSDL2` is injected by the `mode=lgfx` menu option and the standard
+search paths cover the rest. Select **Tools → Mode → LovyanGFX /
+M5GFX headless** in the Arduino IDE (or set `mode=lgfx` on the FQBN,
+e.g. `lang-ship:host:host:mode=lgfx`) to opt in. SDL2 always runs with
+`SDL_VIDEODRIVER=dummy` in this mode, so no window appears — output
+is captured via `gfx.createPng()` to disk.
+
+Verify the wiring with `tests/graphics/lovyangfx_smoke` (or
+`m5gfx_smoke` / `m5unified_smoke`); each one renders a few sample
+panels and writes them as PNG files into the test directory's
+`output/`.
+
 ## Arduino CLI Workflow
 
 1. Register the Boards Manager index:

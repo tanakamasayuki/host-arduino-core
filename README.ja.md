@@ -260,6 +260,48 @@ TLS → OpenSSL** を選ぶ（もしくは FQBN に `tls=openssl` を付与、�
 OpenSSL に到達できれば `PROBE_RESULT=PASS`、できなければ `PROBE_RESULT=FAIL`
 （ヒント付き）を Serial 出力します。
 
+### オプション: SDL2（LovyanGFX / M5GFX ヘッドレス描画）
+
+ボードメニュー `mode=lgfx` を選ぶ場合のみ必要（M5GFX / LovyanGFX /
+M5Unified スケッチを host PC 上でオフスクリーン描画する用途、CI で
+レイアウト確認するなどに使う）。スケッチがグラフィックを触らない場合は
+スキップして構いません。
+
+- Linux（Debian / Ubuntu）:
+  ```bash
+  sudo apt update
+  sudo apt install libsdl2-dev
+  ```
+
+- Linux（Fedora / RHEL / Rocky）:
+  ```bash
+  sudo dnf install SDL2-devel
+  ```
+
+- Windows（MSYS2 UCRT64）:
+  ```bash
+  C:\msys64\usr\bin\pacman -S mingw-w64-ucrt-x86_64-SDL2
+  ```
+
+- macOS（Homebrew）:
+  ```bash
+  brew install sdl2
+  ```
+  リンクレシピが Homebrew 固有の `-I` / `-L` パスを追加していないため、
+  macOS の `mode=lgfx` ビルドは現状未検証（`tls=openssl` と同じ注意）。
+
+dev パッケージをインストール後の追加設定は不要 — `-lSDL2` は
+`mode=lgfx` メニュー側で注入され、標準探索パスでヘッダも見つかります。
+Arduino IDE の **Tools → Mode → LovyanGFX / M5GFX headless** を選ぶ
+（もしくは FQBN に `mode=lgfx` を付与、例: `lang-ship:host:host:mode=lgfx`）
+で有効化されます。このモードでは SDL2 が常に `SDL_VIDEODRIVER=dummy` で
+動作するためウィンドウは出ず、出力は `gfx.createPng()` でディスクに
+書き出して確認します。
+
+リンクが正しく通っているかは `tests/graphics/lovyangfx_smoke`
+（もしくは `m5gfx_smoke` / `m5unified_smoke`）で確認可能 — 各テストが
+複数サイズの PNG を `output/` に生成します。
+
 ## Arduino CLI での使い方
 
 1. Boards Manager index を登録します。
