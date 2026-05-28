@@ -206,6 +206,38 @@ esp32:
       platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
 ```
 
+## ファイル I/O の慣習
+
+スケッチが fixture ファイルを読んだり生成物を書き出したりする場合の
+推奨ルール：
+
+- **実行時のカレントディレクトリは sketch ディレクトリ**（`.ino` が
+  ある場所）。pytest-embedded がそこからバイナリを起動するので、
+  `fopen("foo", ...)` のような相対パスはそのまま sketch ディレクトリ
+  基準で解決される。
+- **入力は `<sketch_dir>/input/` 配下**に置く。fixture ファイルは
+  ここに git 管理で置き、スケッチからは `fopen("input/foo", "rb")` で
+  読む。
+- **出力は `<sketch_dir>/output/` 配下**に書く。スケッチ側は書き出し
+  前に `mkdir("output", 0755)`（EEXIST は無視）で作ってから
+  `fopen("output/<name>", "wb")` で書く。`output/` はプロジェクトの
+  `.gitignore` に入れて生成物が commit に混入しないようにする。
+- **各テスト実行前に `output/` を削除する**。前回の残骸ファイルが
+  残っていると、スケッチが失敗していてもテストが偶然パスしてしまう。
+  このリポジトリでは `tests/conftest.py` の `pytest_runtest_setup`
+  フックがテスト前に `<sketch_dir>/output/` を丸ごと削除する形で
+  実装している。下流プロジェクトに同等の conftest がない場合は、
+  この実装を参考にコピーするか、使っている fixture / セットアップ
+  機構で同じ事前クリーンアップを行う。
+- テストはこの `<sketch_dir>/output/<name>` を assert する。
+
+これで「ソース（`.ino` / `sketch.yaml` / `test_*.py`）」と「生成物」が
+見た目で分離され、毎回クリーンな状態からテストが走る。
+
+`tests/graphics/lgfx_smoke` がリファレンス実装で、`gfx.createPng()` の
+出力を `output/lgfx_smoke_capture.png` に書き、テスト側でその存在と
+サイズを assert している。
+
 ## 新しいテストを追加する
 
 ### host 専用テスト

@@ -219,6 +219,36 @@ esp32:
       platform_index_url: https://espressif.github.io/arduino-esp32/package_esp32_index.json
 ```
 
+## File I/O convention
+
+When a sketch needs to read fixture data or write generated artifacts:
+
+- **Working directory at runtime is the sketch directory** (the one
+  containing the `.ino`). pytest-embedded launches the binary from
+  there, so plain `fopen("foo", ...)` resolves against the sketch dir.
+- **Inputs go under `<sketch_dir>/input/`** — check fixture files into
+  git there. The sketch reads them via `fopen("input/foo", "rb")`.
+- **Outputs go under `<sketch_dir>/output/`**. The sketch is expected
+  to `mkdir("output", 0755)` (ignore EEXIST) then write to
+  `output/<name>` via `fopen`. `output/` should be in the project's
+  `.gitignore` so artifacts never get committed.
+- **Wipe `output/` before each test run.** Stale files from a previous
+  run could otherwise make a failing sketch look like it succeeded.
+  In this project the wipe is implemented in `tests/conftest.py`
+  (`pytest_runtest_setup` hook removes `<sketch_dir>/output/` before
+  each test); a downstream project that doesn't already have a
+  conftest can copy that hook as a starting point, or arrange the
+  same cleanup with whatever fixture / setup mechanism it uses.
+- The test then asserts on the file under `<sketch_dir>/output/<name>`.
+
+This keeps source files (`.ino`, `sketch.yaml`, `test_*.py`) and
+generated files visibly separated, and makes "clean run" the default
+for every test invocation.
+
+`tests/graphics/lgfx_smoke` is the reference implementation — its
+`output/lgfx_smoke_capture.png` is produced by `gfx.createPng()` and
+asserted by the test.
+
 ## Add a new test
 
 ### Host-only test

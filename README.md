@@ -122,8 +122,8 @@ care about pin state should mock at the sketch layer.
 
 | API | Status | Notes |
 |-----|--------|-------|
-| M5GFX framebuffer mode + screen capture | 🔲 | draw to a framebuffer and persist as an image file |
-| LovyanGFX / TFT_eSPI | 🔲 | same approach as M5GFX |
+| M5GFX / LovyanGFX headless backend | ✅ | enabled by selecting `mode=lgfx` on the FQBN (e.g. `lang-ship:host:host:mode=lgfx`). Sets `SDL_VIDEODRIVER=dummy` in `main()`, wires `Panel_sdl::main` to drive ordinary `setup()`/`loop()` from a worker thread, and leaves `ARDUINO` undefined so M5GFX/LovyanGFX picks its SDL backend in `device.hpp`. Sketches can `Serial.print()` over the TCP runtime as usual and call `gfx.createPng()` to capture a frame for assertion (see `tests/graphics/lgfx_smoke`). Linking pulls `-lSDL2` automatically; on Linux install `libsdl2-dev`. Requires either the M5GFX or LovyanGFX library to be in scope (the core forward-declares `lgfx::v1::Panel_sdl::main` and resolves it at final link) |
+| TFT_eSPI | 🔲 | no plan yet |
 
 ### What "Planned" actually means
 

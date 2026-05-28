@@ -18,7 +18,7 @@ compiler.ldflags=
 # `build_config.toml` in pytest-embedded-arduino-cli emits to inject
 # things like WIFI_SSID) compose cleanly instead of clobbering our menu
 # selections.
-build.core_flags=-DHOST_ARDUINO=1 {build.extra_flags_arduino} {build.extra_flags_sdl2} {build.extra_flags_tls}
+build.core_flags=-DHOST_ARDUINO=1 {build.extra_flags_mode} {build.extra_flags_tls}
 build.extra_flags=
 
 recipe.c.o.pattern={compiler.path}{compiler.c.cmd} {compiler.c.flags} {build.core_flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -c -o {object_file} {source_file}

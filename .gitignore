@@ -4,5 +4,6 @@ __pycache__/
 *.py[cod]
 .pytest*/
 build/
+output/
 .env
 .vscode/

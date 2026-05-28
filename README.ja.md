@@ -123,8 +123,8 @@ ESP32 拡張かを示します。
 
 | API | 状況 | 備考 |
 |-----|------|------|
-| M5GFX フレームバッファモード + 画面キャプチャ | 🔲 | フレームバッファに描画し、画像ファイルとして保存 |
-| LovyanGFX / TFT_eSPI | 🔲 | M5GFX と同じ方針 |
+| M5GFX / LovyanGFX ヘッドレスバックエンド | ✅ | FQBN に `mode=lgfx` を指定（例: `lang-ship:host:host:mode=lgfx`）すると有効。`main()` で `SDL_VIDEODRIVER=dummy` を立てて `Panel_sdl::main` に普通の `setup()`/`loop()` をワーカースレッドから駆動させる構造。`ARDUINO` は未定義のままなので M5GFX/LovyanGFX が `device.hpp` で SDL バックエンドを選ぶ。スケッチは通常通り `Serial.print()` を TCP runtime に流せ、`gfx.createPng()` でフレームを PNG として保存して assert 可能（`tests/graphics/lgfx_smoke` 参照）。リンクは `-lSDL2` 自動付加。Linux は `libsdl2-dev` を導入。M5GFX もしくは LovyanGFX ライブラリがスケッチに含まれている必要あり（コア側は `lgfx::v1::Panel_sdl::main` を forward-declare してリンク時に解決） |
+| TFT_eSPI | 🔲 | 計画なし |
 
 ### 「Planned」の意味
 
