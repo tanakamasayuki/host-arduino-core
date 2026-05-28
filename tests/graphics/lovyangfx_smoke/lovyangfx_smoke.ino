@@ -1,74 +1,88 @@
-// Headless LovyanGFX smoke test.
-// Uses LGFX_AUTODETECT which on host (with SDL2) instantiates an LGFX class
-// backed by Panel_sdl.
+// lovyangfx_smoke
+//
+// Same shape as m5gfx_smoke / m5unified_smoke, driven by raw LovyanGFX
+// (LGFX from LGFX_AUTODETECT, no M5GFX / M5Unified). drawMain and
+// drawHome come from the gfx_demo library so regressions in either
+// surface against all three smoke variants.
+//
+// Output PNGs:
+//   output/main.png             ← drawMain on the physical panel
+//   output/home_<board>.png     ← drawHome on each Case[] entry
 
 #include <LovyanGFX.hpp>
 #include <LGFX_AUTODETECT.hpp>
+#include <gfx_demo.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
 static LGFX gfx;
-static int g_frames = 0;
-static constexpr int FRAME_TARGET = 20;
-static bool g_captured = false;
+
+struct Case
+{
+    const char *name;
+    int w, h;
+    uint8_t rotation;
+    lgfx::color_depth_t depth;
+};
+
+static const Case cases[] = {
+    {"stickcplus_p", 135, 240, 0, lgfx::rgb565_2Byte}, // M5StickCPlus 縦持ち
+    {"stickcplus_l", 135, 240, 1, lgfx::rgb565_2Byte}, // M5StickCPlus 横向き (setRotation=1)
+    {"core2", 320, 240, 0, lgfx::rgb565_2Byte},        // M5Stack Core2 横長
+    {"atoms3", 128, 128, 0, lgfx::rgb565_2Byte},       // M5AtomS3 正方形
+    {"coreink", 200, 200, 0, lgfx::grayscale_8bit},    // M5StackCoreInk e-paper 8bit grayscale
+};
+
+static bool save_png(LovyanGFX &src, const char *path)
+{
+    size_t len = 0;
+    void *png = src.createPng(&len, 0, 0, src.width(), src.height());
+    if (!png || len == 0)
+        return false;
+    FILE *fp = fopen(path, "wb");
+    bool ok = false;
+    if (fp)
+    {
+        ok = (fwrite(png, 1, len, fp) == len);
+        fclose(fp);
+    }
+    free(png);
+    return ok;
+}
 
 void setup()
 {
     Serial.begin(115200);
     Serial.println("TEST start lovyangfx_smoke");
+
+    mkdir("output", 0755);
     gfx.init();
-    gfx.fillScreen(TFT_CYAN);
-    Serial.print("size=");
-    Serial.print(gfx.width());
-    Serial.print("x");
-    Serial.println(gfx.height());
+
+    drawMain(gfx);
+    Serial.println(save_png(gfx, "output/main.png") ? "MAIN ok" : "MAIN fail");
+
+    const char *fn = "home";
+    for (const auto &c : cases)
+    {
+        LGFX_Sprite canvas(&gfx);
+        canvas.setColorDepth(c.depth);
+        canvas.createSprite(c.w, c.h);
+        canvas.setRotation(c.rotation);
+        drawHome(canvas);
+        char path[64];
+        snprintf(path, sizeof(path), "output/%s_%s.png", fn, c.name);
+        const bool ok = save_png(canvas, path);
+        Serial.print(ok ? "CASE " : "FAIL ");
+        Serial.print(fn);
+        Serial.print('_');
+        Serial.println(c.name);
+        canvas.deleteSprite();
+    }
+
+    Serial.println("TEST done");
 }
 
 void loop()
 {
-    if (g_frames < FRAME_TARGET)
-    {
-        gfx.fillCircle(gfx.width() / 2, gfx.height() / 2, 8 + g_frames, TFT_ORANGE);
-        g_frames++;
-        return;
-    }
-    if (g_captured)
-    {
-        delay(50);
-        return;
-    }
-
-    const uint32_t p_corner = gfx.readPixel(0, 0);
-    const uint32_t p_center = gfx.readPixel(gfx.width() / 2, gfx.height() / 2);
-    Serial.print("corner=0x");
-    Serial.println(p_corner, HEX);
-    Serial.print("center=0x");
-    Serial.println(p_center, HEX);
-
-    mkdir("output", 0755);
-
-    size_t png_len = 0;
-    void *png = gfx.createPng(&png_len, 0, 0, gfx.width(), gfx.height());
-    if (png && png_len > 0)
-    {
-        FILE *fp = fopen("output/lovyangfx_smoke_capture.png", "wb");
-        if (fp)
-        {
-            fwrite(png, 1, png_len, fp);
-            fclose(fp);
-            Serial.print("CAPTURE bytes=");
-            Serial.println(png_len);
-        }
-        else
-        {
-            Serial.println("CAPTURE open_failed");
-        }
-        free(png);
-    }
-    else
-    {
-        Serial.println("CAPTURE failed");
-    }
-    Serial.println("TEST done");
-    g_captured = true;
+    delay(1000);
 }

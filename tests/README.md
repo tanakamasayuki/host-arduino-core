@@ -249,6 +249,44 @@ for every test invocation.
 `output/lgfx_smoke_capture.png` is produced by `gfx.createPng()` and
 asserted by the test.
 
+## Sharing code between sketches via `tests/common_libs/`
+
+Tests that need to share C++ code (drawing helpers, mock state, etc.) put
+it under `tests/common_libs/<libname>/` as an Arduino-library-shaped
+directory (`library.properties` + `src/`). Sketches reference it from
+their `sketch.yaml`:
+
+```yaml
+profiles:
+  host:
+    libraries:
+      - dir: ../../common_libs/<libname>
+```
+
+`tests/common_libs/gfx_demo/` is the reference. It declares `drawHome`
+and friends, used identically by the three graphics smokes
+(`lovyangfx_smoke`, `m5gfx_smoke`, `m5unified_smoke`). The library
+implements the routine once and renders it at many sizes / rotations /
+color depths via `LGFX_Sprite` inside each sketch, so regressions in
+the routine surface against all three library entry points
+simultaneously.
+
+### Library that targets multiple upstream graphics libs
+
+`gfx_demo.cpp` picks one of `M5Unified.h` / `M5GFX.h` / `LovyanGFX.hpp`
+via `__has_include`. This 3-way switch is **a test-only pattern** —
+production code should pin a single graphics library and include it
+directly. With `sketch.yaml` the `__has_include` result is
+deterministic (only declared libraries appear on the include path);
+the Arduino IDE, with multiple libraries installed globally, can give
+unexpected results.
+
+`gfx_demo.h` is intentionally kept "neutral": it has no `__has_include`
+of its own and declares only `void drawHome(LovyanGFX &)`. Callers must
+include their graphics library before `#include <gfx_demo.h>` so the
+`LovyanGFX` type is in scope. This keeps the 3-way switch confined to
+the single `.cpp`.
+
 ## Add a new test
 
 ### Host-only test

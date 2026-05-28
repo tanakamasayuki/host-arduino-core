@@ -238,6 +238,40 @@ esp32:
 出力を `output/lgfx_smoke_capture.png` に書き、テスト側でその存在と
 サイズを assert している。
 
+## `tests/common_libs/` で sketch 間の C++ コードを共有する
+
+複数 sketch から共有したい C++ コード（描画ヘルパ、モック等）は
+`tests/common_libs/<libname>/` に Arduino library 形式（`library.properties`
++ `src/`）で置く。sketch 側は `sketch.yaml` から参照する:
+
+```yaml
+profiles:
+  host:
+    libraries:
+      - dir: ../../common_libs/<libname>
+```
+
+`tests/common_libs/gfx_demo/` が参考実装。`drawHome` 等の関数を 1 箇所で
+書き、3 つの graphics smoke（`lovyangfx_smoke` / `m5gfx_smoke` /
+`m5unified_smoke`）から同じ関数を呼ぶ。各 sketch は `LGFX_Sprite` を
+複数解像度 / 回転 / 色深度で生成し同じ関数に通すので、`drawHome` の
+回帰は 3 entry point 全てから即検出できる。
+
+### 複数 upstream gfx ライブラリに対応するライブラリの書き方
+
+`gfx_demo.cpp` は `M5Unified.h` / `M5GFX.h` / `LovyanGFX.hpp` のどれが
+利用可能かを `__has_include` で検出して include する。**この 3 分岐は
+テスト都合のパターン**で、本番コードは利用 lib を 1 つに固定して直に
+`#include <M5GFX.h>` 等と書くのが普通。`sketch.yaml` 経由なら宣言済み
+lib のみが include path に通るので `__has_include` は決定的に動くが、
+Arduino IDE のように複数 lib がグローバル install されてる環境では順序
+依存で誤検出しうる。
+
+`gfx_demo.h` は「中立」に保ち、自前で `__has_include` せず宣言だけ
+（`void drawHome(LovyanGFX &)`）置く。呼び出し側が gfx ライブラリを
+先に include して `LovyanGFX` 型をスコープに入れる前提。これで 3 分岐
+を `.cpp` 1 箇所に閉じ込めている。
+
 ## 新しいテストを追加する
 
 ### host 専用テスト

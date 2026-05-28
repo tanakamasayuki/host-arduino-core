@@ -1,81 +1,90 @@
-// Ordinary Arduino-style sketch with M5GFX on host_lgfx core.
-// SDL is headless (driver=dummy); Serial runs over TCP via HostRuntime
-// so the pytest dut fixture can observe progress and assert outputs.
+// m5gfx_smoke
 //
-// File I/O convention:
-//   - CWD at runtime is the sketch directory (pytest-embedded behavior).
-//   - Sketches that write artifacts should put them under `output/`.
-//   - conftest.py wipes `output/` before each test; the sketch (re)creates
-//     it on the fly when it needs to write something.
-//   - `output/` is in the repo's .gitignore so artifacts never get
-//     committed.
+// Two independent things:
+//   1. main panel sanity: M5GFX().init() works and a different render
+//      (drawMain) round-trips through createPng. drawMain is distinct
+//      from drawHome so a regression in drawHome can't mask a
+//      panel-init regression here.
+//   2. shared drawHome routine: exercised across a fixed list of board
+//      sizes / rotations / color depths via LGFX_Sprite, in one build.
+//
+// Output PNGs land in output/:
+//   output/main.png             ← drawMain on the physical panel
+//   output/home_<board>.png     ← drawHome on each Case[] entry
 
 #include <M5GFX.h>
+#include <gfx_demo.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
 static M5GFX gfx;
-static int g_frames = 0;
-static constexpr int FRAME_TARGET = 20;
-static bool g_captured = false;
+
+struct Case
+{
+    const char *name;
+    int w, h;
+    uint8_t rotation;
+    lgfx::color_depth_t depth;
+};
+
+static const Case cases[] = {
+    {"stickcplus_p", 135, 240, 0, lgfx::rgb565_2Byte}, // M5StickCPlus 縦持ち
+    {"stickcplus_l", 135, 240, 1, lgfx::rgb565_2Byte}, // M5StickCPlus 横向き (setRotation=1)
+    {"core2", 320, 240, 0, lgfx::rgb565_2Byte},        // M5Stack Core2 横長
+    {"atoms3", 128, 128, 0, lgfx::rgb565_2Byte},       // M5AtomS3 正方形
+    {"coreink", 200, 200, 0, lgfx::grayscale_8bit},    // M5StackCoreInk e-paper 8bit grayscale
+};
+
+static bool save_png(LovyanGFX &src, const char *path)
+{
+    size_t len = 0;
+    void *png = src.createPng(&len, 0, 0, src.width(), src.height());
+    if (!png || len == 0)
+        return false;
+    FILE *fp = fopen(path, "wb");
+    bool ok = false;
+    if (fp)
+    {
+        ok = (fwrite(png, 1, len, fp) == len);
+        fclose(fp);
+    }
+    free(png);
+    return ok;
+}
 
 void setup()
 {
     Serial.begin(115200);
     Serial.println("TEST start m5gfx_smoke");
+
+    mkdir("output", 0755);
     gfx.init();
-    gfx.fillScreen(TFT_BLUE);
-    Serial.print("size=");
-    Serial.print(gfx.width());
-    Serial.print("x");
-    Serial.println(gfx.height());
+
+    drawMain(gfx);
+    Serial.println(save_png(gfx, "output/main.png") ? "MAIN ok" : "MAIN fail");
+
+    const char *fn = "home";
+    for (const auto &c : cases)
+    {
+        LGFX_Sprite canvas(&gfx);
+        canvas.setColorDepth(c.depth);
+        canvas.createSprite(c.w, c.h);
+        canvas.setRotation(c.rotation);
+        drawHome(canvas);
+        char path[64];
+        snprintf(path, sizeof(path), "output/%s_%s.png", fn, c.name);
+        const bool ok = save_png(canvas, path);
+        Serial.print(ok ? "CASE " : "FAIL ");
+        Serial.print(fn);
+        Serial.print('_');
+        Serial.println(c.name);
+        canvas.deleteSprite();
+    }
+
+    Serial.println("TEST done");
 }
 
 void loop()
 {
-    if (g_frames < FRAME_TARGET)
-    {
-        gfx.fillCircle(gfx.width() / 2, gfx.height() / 2, 8 + g_frames, TFT_YELLOW);
-        g_frames++;
-        return;
-    }
-    if (g_captured)
-    {
-        delay(50);
-        return;
-    }
-
-    const uint32_t p_corner = gfx.readPixel(0, 0);
-    const uint32_t p_center = gfx.readPixel(gfx.width() / 2, gfx.height() / 2);
-    Serial.print("corner=0x");
-    Serial.println(p_corner, HEX);
-    Serial.print("center=0x");
-    Serial.println(p_center, HEX);
-
-    mkdir("output", 0755); // ignore failure: already exists is fine
-
-    size_t png_len = 0;
-    void *png = gfx.createPng(&png_len, 0, 0, gfx.width(), gfx.height());
-    if (png && png_len > 0)
-    {
-        FILE *fp = fopen("output/m5gfx_smoke_capture.png", "wb");
-        if (fp)
-        {
-            fwrite(png, 1, png_len, fp);
-            fclose(fp);
-            Serial.print("CAPTURE bytes=");
-            Serial.println(png_len);
-        }
-        else
-        {
-            Serial.println("CAPTURE open_failed");
-        }
-        free(png);
-    }
-    else
-    {
-        Serial.println("CAPTURE failed");
-    }
-    Serial.println("TEST done");
-    g_captured = true;
+    delay(1000);
 }
