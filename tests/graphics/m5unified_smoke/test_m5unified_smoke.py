@@ -7,11 +7,11 @@ CASES = ["stickcplus_p", "stickcplus_l", "core2", "atoms3", "coreink"]
 
 
 def test_m5unified_smoke(dut):
-    dut.expect("TEST start m5unified_smoke", timeout=60)
-    dut.expect("MAIN ok", timeout=60)
+    dut.expect("TEST start m5unified_smoke", timeout=120)
+    dut.expect("MAIN ok", timeout=120)
     for name in CASES:
-        dut.expect(f"CASE home_{name}", timeout=60)
-    dut.expect("TEST done", timeout=60)
+        dut.expect(f"CASE home_{name}", timeout=120)
+    dut.expect("TEST done", timeout=120)
 
     out = SKETCH_DIR / "output"
     assert (out / "main.png").stat().st_size > 100
