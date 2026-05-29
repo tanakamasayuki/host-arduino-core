@@ -1,6 +1,7 @@
 #include "HostRuntime.h"
 
 #include <atomic>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -393,19 +394,37 @@ void sendToClient(const char *data, size_t len)
     if (g_client_socket == invalid_socket_value || len == 0) {
         return;
     }
+    size_t offset = 0;
+    unsigned would_block_retries = 0;
+    while (offset < len && !g_stop) {
 #ifdef _WIN32
-    const int flags = 0;
+        const int flags = 0;
 #else
-    const int flags = MSG_NOSIGNAL;
+        const int flags = MSG_NOSIGNAL;
 #endif
-    const int sent = send(g_client_socket, data, static_cast<int>(len), flags);
-    if (sent < 0 && !isWouldBlock(lastSocketError())) {
+        const int chunk_len = static_cast<int>(
+            std::min(len - offset, static_cast<size_t>(1024)));
+        const int sent = send(g_client_socket, data + offset, chunk_len, flags);
+        if (sent > 0) {
+            offset += static_cast<size_t>(sent);
+            would_block_retries = 0;
+            continue;
+        }
+        const int err = lastSocketError();
+        if (sent < 0 && isWouldBlock(err) && would_block_retries++ < 1000) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
         setExitReason("tcp_send_error");
         std::ostringstream oss;
-        oss << "error=" << lastSocketError();
+        oss << "error=" << err << " sent_bytes=" << offset << " total_bytes=" << len;
         logLine(LOG_ERROR, "tcp_send_error", oss.str());
         g_stop = true;
+        return;
     }
+    std::ostringstream oss;
+    oss << "bytes=" << offset;
+    logLine(LOG_DEBUG, "tcp_send", oss.str());
 }
 
 void serverLoop(host_socket_t server, unsigned long connect_timeout_ms)
