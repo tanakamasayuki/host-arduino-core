@@ -2,5 +2,5 @@
 
 
 def test_smoke(dut):
-    dut.expect("SMOKE ready", timeout=180)
-    dut.expect("millis=", timeout=180)
+    dut.expect("SMOKE ready", timeout=10)
+    dut.expect("millis=", timeout=10)

@@ -12,15 +12,15 @@ import re
 def test_tls_openssl(dut):
     header = dut.expect(
         re.compile(rb"OPENSSL_HEADER=(OpenSSL[^\r\n]+)"),
-        timeout=180,
+        timeout=10,
     ).group(1).decode()
     runtime = dut.expect(
         re.compile(rb"OPENSSL_RUNTIME=(OpenSSL[^\r\n]+)"),
-        timeout=180,
+        timeout=10,
     ).group(1).decode()
 
     assert header.startswith("OpenSSL "), f"unexpected header version: {header!r}"
     assert runtime.startswith("OpenSSL "), f"unexpected runtime version: {runtime!r}"
 
-    dut.expect(re.compile(rb"CTX_NEW_OK"), timeout=180)
-    dut.expect(re.compile(rb"TLS_PROBE_DONE"), timeout=180)
+    dut.expect(re.compile(rb"CTX_NEW_OK"), timeout=10)
+    dut.expect(re.compile(rb"TLS_PROBE_DONE"), timeout=10)

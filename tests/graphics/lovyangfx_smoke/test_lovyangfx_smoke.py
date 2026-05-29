@@ -7,11 +7,11 @@ CASES = ["stickcplus_p", "stickcplus_l", "core2", "atoms3", "coreink"]
 
 
 def test_lovyangfx_smoke(dut):
-    dut.expect("TEST start lovyangfx_smoke", timeout=180)
-    dut.expect("MAIN ok", timeout=180)
+    dut.expect("TEST start lovyangfx_smoke", timeout=30)
+    dut.expect("MAIN ok", timeout=30)
     for name in CASES:
-        dut.expect(f"CASE home_{name}", timeout=180)
-    dut.expect("TEST done", timeout=180)
+        dut.expect(f"CASE home_{name}", timeout=30)
+    dut.expect("TEST done", timeout=30)
 
     out = SKETCH_DIR / "output"
     assert (out / "main.png").stat().st_size > 100

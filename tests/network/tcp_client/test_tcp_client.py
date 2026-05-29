@@ -6,7 +6,7 @@ import threading
 
 
 def test_tcp_client(dut):
-    dut.expect(re.compile(rb"READY"), timeout=180)
+    dut.expect(re.compile(rb"READY"), timeout=10)
 
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -27,14 +27,14 @@ def test_tcp_client(dut):
 
     try:
         dut.write(f"CONNECT {server_port}\n".encode())
-        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=180)
+        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=10)
 
-        t.join(timeout=60)
+        t.join(timeout=10)
         assert "sock" in accepted, "sketch did not connect"
         conn: socket.socket = accepted["sock"]
 
-        dut.expect(re.compile(rb"CONNECTED"), timeout=180)
-        dut.expect(re.compile(rb"WROTE 4"), timeout=180)
+        dut.expect(re.compile(rb"CONNECTED"), timeout=10)
+        dut.expect(re.compile(rb"WROTE 4"), timeout=10)
 
         # Read what the sketch sent us.
         received = b""
@@ -47,11 +47,11 @@ def test_tcp_client(dut):
 
         # Send a response — sketch should echo it back on Serial.
         conn.sendall(b"PONG")
-        dut.expect(re.compile(rb"RX PONG"), timeout=180)
+        dut.expect(re.compile(rb"RX PONG"), timeout=10)
 
         conn.shutdown(socket.SHUT_RDWR)
         conn.close()
 
-        dut.expect(re.compile(rb"CLOSED"), timeout=180)
+        dut.expect(re.compile(rb"CLOSED"), timeout=10)
     finally:
         listener.close()

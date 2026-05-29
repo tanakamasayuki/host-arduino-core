@@ -5,20 +5,20 @@ import socket
 
 
 def test_tcp_echo(dut):
-    match = dut.expect(re.compile(rb"TCP_PORT=(\d+)"), timeout=180)
+    match = dut.expect(re.compile(rb"TCP_PORT=(\d+)"), timeout=10)
     sketch_port = int(match.group(1))
     assert sketch_port > 0
 
-    sock = socket.create_connection(("127.0.0.1", sketch_port), timeout=60)
+    sock = socket.create_connection(("127.0.0.1", sketch_port), timeout=10)
     sock.settimeout(5.0)
     try:
-        dut.expect(re.compile(rb"ACCEPTED"), timeout=180)
+        dut.expect(re.compile(rb"ACCEPTED"), timeout=10)
 
         for payload in (b"hello\n", b"second message\n", bytes(range(64))):
             sock.sendall(payload)
             dut.expect(
                 re.compile(rb"ECHO " + str(len(payload)).encode() + rb"\b"),
-                timeout=180,
+                timeout=10,
             )
 
             received = b""
@@ -31,4 +31,4 @@ def test_tcp_echo(dut):
     finally:
         sock.close()
 
-    dut.expect(re.compile(rb"CLOSED"), timeout=180)
+    dut.expect(re.compile(rb"CLOSED"), timeout=10)
