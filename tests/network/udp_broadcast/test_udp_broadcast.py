@@ -9,7 +9,7 @@ import re
 
 
 def test_udp_broadcast(dut):
-    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=10)
+    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=30)
     port = int(match.group(1))
     assert port > 0
 

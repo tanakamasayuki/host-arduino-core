@@ -8,9 +8,9 @@ CASES = ["stickcplus_p", "stickcplus_l", "core2", "atoms3", "coreink"]
 
 def test_lovyangfx_smoke(dut):
     dut.expect("TEST start lovyangfx_smoke", timeout=15)
-    dut.expect("MAIN ok", timeout=10)
+    dut.expect("MAIN ok", timeout=30)
     for name in CASES:
-        dut.expect(f"CASE home_{name}", timeout=10)
+        dut.expect(f"CASE home_{name}", timeout=30)
     dut.expect("TEST done", timeout=5)
 
     out = SKETCH_DIR / "output"

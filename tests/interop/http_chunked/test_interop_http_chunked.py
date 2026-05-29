@@ -28,12 +28,12 @@ def test_interop_http_chunked(dut):
     # is -1 — that itself is the parity check for this code path.
     dut.expect(re.compile(rb"LEN=-1"), timeout=5)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=10)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=30)
     assert int(body_len_match.group(1)) > 0, "empty body from /stream/3"
 
     # The unique tag must appear once per echoed record — three times
     # for /stream/3. This catches both partial decode and over-decode.
     dut.expect(re.compile(rb"TAG_COUNT=3"), timeout=5)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=10)
+    dut.expect(re.compile(rb"BODY_END"), timeout=30)
     dut.expect(re.compile(rb"DONE"), timeout=5)

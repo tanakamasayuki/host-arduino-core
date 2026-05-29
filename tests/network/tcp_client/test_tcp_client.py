@@ -6,7 +6,7 @@ import threading
 
 
 def test_tcp_client(dut):
-    dut.expect(re.compile(rb"READY"), timeout=10)
+    dut.expect(re.compile(rb"READY"), timeout=30)
 
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

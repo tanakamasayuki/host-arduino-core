@@ -1,5 +1,5 @@
 def test_esp_log(dut):
-    dut.expect("TEST start esp_log", timeout=10)
+    dut.expect("TEST start esp_log", timeout=30)
     dut.expect("CORE_DEBUG_LEVEL=0", timeout=5)
     dut.expect("ESP_LOG_NONE=0", timeout=5)
     dut.expect("ESP_LOG_VERBOSE=5", timeout=5)

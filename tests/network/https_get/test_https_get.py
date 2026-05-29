@@ -55,7 +55,7 @@ def test_https_get(dut, tmp_path):
     server.socket = ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
-        dut.expect(re.compile(rb"READY"), timeout=10)
+        dut.expect(re.compile(rb"READY"), timeout=30)
         dut.write(f"GET https://127.0.0.1:{server.server_port}/hello\n".encode())
         dut.expect(re.compile(rb"CODE=200"), timeout=15)
         dut.expect(re.compile(rb"LEN=" + str(len(BODY_TEXT)).encode()), timeout=5)

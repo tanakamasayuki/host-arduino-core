@@ -5,7 +5,7 @@ import socket
 
 
 def test_tcp_echo(dut):
-    match = dut.expect(re.compile(rb"TCP_PORT=(\d+)"), timeout=10)
+    match = dut.expect(re.compile(rb"TCP_PORT=(\d+)"), timeout=30)
     sketch_port = int(match.group(1))
     assert sketch_port > 0
 

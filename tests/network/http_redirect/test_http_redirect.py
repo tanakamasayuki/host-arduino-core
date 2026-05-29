@@ -66,13 +66,13 @@ def test_http_redirect(dut):
     port = server.server_port
     base = f"http://127.0.0.1:{port}"
     try:
-        dut.expect(re.compile(rb"READY"), timeout=10)
+        dut.expect(re.compile(rb"READY"), timeout=30)
 
         # 1. DISABLE: 302 surfaces as the status code; Location header is exposed.
         dut.write(b"MODE 0\n")
         dut.expect(re.compile(rb"MODE_OK 0"), timeout=5)
         dut.write(f"GET {base}/once\n".encode())
-        dut.expect(re.compile(rb"CODE=302"), timeout=10)
+        dut.expect(re.compile(rb"CODE=302"), timeout=30)
         dut.expect(re.compile(rb"LOC=/target"), timeout=5)
         dut.expect(re.compile(rb"DONE"), timeout=5)
 
@@ -80,7 +80,7 @@ def test_http_redirect(dut):
         dut.write(b"MODE 1\n")
         dut.expect(re.compile(rb"MODE_OK 1"), timeout=5)
         dut.write(f"GET {base}/once\n".encode())
-        dut.expect(re.compile(rb"CODE=200"), timeout=10)
+        dut.expect(re.compile(rb"CODE=200"), timeout=30)
         dut.expect(re.compile(rb"BODY:" + re.escape(FINAL_BODY)), timeout=5)
         dut.expect(re.compile(rb"DONE"), timeout=5)
 

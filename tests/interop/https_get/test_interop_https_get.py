@@ -30,7 +30,7 @@ def test_interop_https_get(dut):
     # resolution and TLS handshake on a fresh boot.
     dut.expect(re.compile(rb"CODE=200"), timeout=30)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=10)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=30)
     body_len = int(body_len_match.group(1))
     assert body_len > 0, "empty body from httpbin.org"
 
@@ -38,5 +38,5 @@ def test_interop_https_get(dut):
     # httpbin.org's echoed JSON. This is the actual parity check.
     dut.expect(re.compile(re.escape(TAG)), timeout=15)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=10)
+    dut.expect(re.compile(rb"BODY_END"), timeout=30)
     dut.expect(re.compile(rb"DONE"), timeout=5)

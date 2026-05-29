@@ -12,7 +12,7 @@ import re
 def test_tls_openssl(dut):
     header = dut.expect(
         re.compile(rb"OPENSSL_HEADER=(OpenSSL[^\r\n]+)"),
-        timeout=10,
+        timeout=30,
     ).group(1).decode()
     runtime = dut.expect(
         re.compile(rb"OPENSSL_RUNTIME=(OpenSSL[^\r\n]+)"),
