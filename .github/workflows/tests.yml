@@ -34,6 +34,11 @@ jobs:
           echo "CPATH=$(brew --prefix sdl2)/include:$(brew --prefix openssl)/include" >> "$GITHUB_ENV"
           echo "LIBRARY_PATH=$(brew --prefix sdl2)/lib:$(brew --prefix openssl)/lib" >> "$GITHUB_ENV"
 
+      - name: Disable Windows Defender real-time scan (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
+
       - name: Install SDL2 and OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: bash
