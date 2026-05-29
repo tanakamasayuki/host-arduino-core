@@ -416,7 +416,15 @@ When the executable is started without internal runtime arguments, it acts as a 
 3. Prints the TCP port and info-file path to stdout.
 4. Exits, allowing `arduino-cli upload` to return.
 
-The child process runs the Arduino sketch and opens a localhost TCP server. `Serial.print()`, `Serial.println()`, and `Serial.write()` append to a bounded output buffer. Data printed before the test connects is sent to the first TCP client after connection.
+The child process opens a localhost TCP server, publishes the connection info,
+and waits for the first TCP client before entering the Arduino sketch's
+`setup()`. This keeps early `Serial.print()` / `Serial.println()` output from
+being produced before pytest or another controller has finished attaching to
+the TCP-backed `Serial` stream. If no client connects before
+`HOST_ARDUINO_CONNECT_TIMEOUT_MS`, the child exits.
+
+`Serial.print()`, `Serial.println()`, and `Serial.write()` append to a bounded
+output buffer and are sent to the connected TCP client.
 
 The connection-info file is written next to the executable:
 
@@ -446,12 +454,14 @@ Direct `fopen()` calls from a sketch do not use this mapping. They follow the no
 ## Runtime Environment Variables
 
 - `HOST_ARDUINO_CONNECT_TIMEOUT_MS`: child process timeout while waiting for the first TCP client. Default: `10000`.
+- `HOST_ARDUINO_START_DELAY_MS`: short settle delay after the first TCP client connects and before `setup()` starts. Default: `250`.
 - `HOST_ARDUINO_PARENT_WAIT_MS`: launcher timeout while waiting for the child to publish connection info. Default: `5000`.
 - `HOST_ARDUINO_SERIAL_BUFFER_SIZE`: maximum buffered Serial output bytes. Default: `65536`.
 - `HOST_ARDUINO_LOG`: runtime log output. Default: `<executable>.host-arduino.log`. Set to `0`, `false`, or `off` to disable logging, or set a file path to override the destination.
 - `HOST_ARDUINO_LOG_LEVEL`: runtime log level. Default: `info`. Use `debug` to include Serial byte counts.
 
-If no TCP client connects before the connect timeout, the child process exits. After a client connects, disconnecting the TCP socket also stops the sketch process.
+After a client connects and the sketch starts, disconnecting the TCP socket
+stops the sketch process.
 
 The runtime log records launcher startup, child process startup, TCP listen/connect/disconnect events, Serial byte counts in debug mode, and the final exit reason. Serial payload bytes are not written to the log.
 

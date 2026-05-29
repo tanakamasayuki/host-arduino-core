@@ -411,7 +411,15 @@ Arduino IDE の **Tools → Mode → LovyanGFX / M5GFX headless** を選ぶ
 3. TCP ポート番号と接続情報ファイルのパスを標準出力に出します。
 4. ランチャーは終了し、`arduino-cli upload` が戻ります。
 
-子プロセスは Arduino スケッチ本体を実行し、localhost の TCP サーバを開きます。`Serial.print()`、`Serial.println()`、`Serial.write()` の出力は上限付きバッファに保存されます。テスト側が接続する前に出た出力も、最初の TCP クライアント接続後に送信されます。
+子プロセスは localhost の TCP サーバを開いて接続情報を公開し、最初の TCP
+クライアントが接続してから Arduino スケッチの `setup()` に入ります。これに
+より、pytest などの制御側が TCP 経由の `Serial` ストリームへ接続し終わる前に
+初期の `Serial.print()` / `Serial.println()` 出力が発生することを避けます。
+`HOST_ARDUINO_CONNECT_TIMEOUT_MS` までにクライアントが接続しない場合、子プロセス
+は終了します。
+
+`Serial.print()`、`Serial.println()`、`Serial.write()` の出力は上限付きバッファに
+保存され、接続済みの TCP クライアントへ送信されます。
 
 接続情報ファイルは実行ファイルと同じ場所に作成されます。
 
@@ -441,12 +449,14 @@ Arduino IDE の **Tools → Mode → LovyanGFX / M5GFX headless** を選ぶ
 ## ランタイム環境変数
 
 - `HOST_ARDUINO_CONNECT_TIMEOUT_MS`: 子プロセスが最初の TCP クライアント接続を待つ時間。既定値は `10000`。
+- `HOST_ARDUINO_START_DELAY_MS`: 最初の TCP クライアント接続後、`setup()` を開始する前の短い settle 待ち。既定値は `250`。
 - `HOST_ARDUINO_PARENT_WAIT_MS`: ランチャーが子プロセスの接続情報公開を待つ時間。既定値は `5000`。
 - `HOST_ARDUINO_SERIAL_BUFFER_SIZE`: `Serial` 出力バッファの最大バイト数。既定値は `65536`。
 - `HOST_ARDUINO_LOG`: ランタイムログの出力先。既定値は `<executable>.host-arduino.log`。`0`、`false`、`off` を指定するとログを無効化し、ファイルパスを指定すると出力先を変更できます。
 - `HOST_ARDUINO_LOG_LEVEL`: ランタイムログのレベル。既定値は `info`。`debug` を指定すると `Serial` の送受信バイト数も記録します。
 
-接続タイムアウトまでに TCP クライアントが接続しない場合、子プロセスは終了します。接続後は、TCP ソケットが切断されるとスケッチプロセスも終了します。
+クライアント接続後にスケッチが開始され、以後 TCP ソケットが切断されると
+スケッチプロセスも終了します。
 
 ランタイムログには、ランチャー起動、子プロセス起動、TCP の待ち受け・接続・切断、debug 時の `Serial` バイト数、最終的な終了理由を記録します。`Serial` のデータ内容そのものはログに出力しません。
 

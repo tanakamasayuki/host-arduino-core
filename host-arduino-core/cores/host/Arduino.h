@@ -33,6 +33,13 @@
 #include <string.h>
 #include <math.h>
 
+#ifdef _WIN32
+#include <direct.h>
+// MinGW's sys/stat.h declares mkdir with one argument only (no mode_t).
+// Provide the POSIX two-argument overload so sketches can use mkdir(path, mode).
+inline int mkdir(const char *path, int /*mode*/) { return _mkdir(path); }
+#endif
+
 typedef uint8_t byte;
 typedef bool boolean;
 typedef uint16_t word;

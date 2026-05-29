@@ -12,6 +12,8 @@ host.menu.mode.default=Default (Arduino host)
 host.menu.mode.lgfx=LovyanGFX / M5GFX headless
 host.menu.mode.default.build.extra_flags_mode=-DARDUINO
 host.menu.mode.lgfx.build.extra_flags_mode=-DNATIVE_USE_SDL2 -lSDL2
+host.menu.mode.lgfx.build.extra_flags_mode.macosx=-DNATIVE_USE_SDL2 -DLGFX_SDL -lSDL2
+host.menu.mode.lgfx.build.extra_flags_mode.windows=-DNATIVE_USE_SDL2 -DLGFX_SDL -lSDL2
 
 host.menu.tls=disabled
 host.menu.tls.disabled=Disabled

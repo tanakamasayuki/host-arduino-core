@@ -51,7 +51,9 @@ extern void loop();
 
 static int host_lgfx_thunk(bool *running)
 {
+    HostArduino::runtimeLogInfo("lgfx_thunk_enter");
     setup();
+    HostArduino::runtimeLogInfo("lgfx_setup_returned");
     while (*running && !HostArduino::runtimeShouldStop())
     {
         loop();
@@ -73,12 +75,18 @@ int main(int argc, char **argv) __attribute__((weak));
 #endif
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+    _putenv("SDL_VIDEODRIVER=dummy");
+#else
     setenv("SDL_VIDEODRIVER", "dummy", 1);
+#endif
     if (!HostArduino::runtimeStart(argc, argv))
     {
         return 1;
     }
+    HostArduino::runtimeLogInfo("lgfx_panel_main_enter");
     const int rc = lgfx::v1::Panel_sdl::main(host_lgfx_thunk, 128);
+    HostArduino::runtimeLogInfo("lgfx_panel_main_exit");
     HostArduino::runtimeStop();
     return rc;
 }
