@@ -3,15 +3,18 @@
 # WARNING — this conftest does two things that look harmless but are
 # load-bearing and can bite if copied blindly into another project:
 #
-# 1. It SYMLINKS the repository working tree into the arduino-cli
+# 1. It registers the repository working tree into the arduino-cli
 #    sketchbook so `lang-ship:host:host` resolves locally instead of
-#    requiring a release install. The link is removed at session end,
+#    requiring a release install. It tries a symlink first; if that
+#    raises OSError (Windows without Developer Mode), it falls back to
+#    a full directory copy. The link/copy is removed at session end,
 #    BUT — if anything goes wrong between setup and teardown (kill -9,
-#    OS crash, pytest --collect-only abort etc.) the link can be left
-#    behind. Subsequent runs detect a pre-existing target that already
+#    OS crash, pytest --collect-only abort etc.) the entry can be left
+#    behind. Subsequent runs detect a pre-existing symlink that already
 #    points at this repo and reuse it, which is fine, but a target
 #    pointing somewhere else makes the fixture `pytest.fail` so we
-#    don't silently overwrite a real install.
+#    don't silently overwrite a real install. A pre-existing plain
+#    directory at that path is also treated as a conflict.
 #
 # 2. It WIPES `<sketch_dir>/output/` before every test. This is so
 #    sketches that write artifacts (PNG captures, dumped files) start
@@ -21,13 +24,6 @@
 #    .ino. Copying this hook into another repo is risky: any directory
 #    literally named `output` under any pytest test file will be
 #    `rmtree`d. Audit before you copy.
-#
-# Platform note: `Path.symlink_to` on Windows requires either
-# Developer Mode or administrator privileges. On a stock Windows
-# session this fixture will raise an OSError during session setup and
-# the test run never starts. host-arduino-core itself supports Windows
-# at build / runtime, but its **test suite is Linux / macOS only**
-# because of this symlink dependency.
 """
 
 import os
@@ -56,20 +52,18 @@ def _sketchbook_dir() -> Path:
 
 @pytest.fixture(scope="session", autouse=True)
 def _local_platform_symlink():
-    # Place a symlink at <sketchbook>/hardware/lang-ship/host that
-    # points at this repo. arduino-cli treats this as a manually-
-    # installed platform, so the local cores/ + boards.txt + platform.txt
-    # are used directly without going through a release.
+    # Register <sketchbook>/hardware/lang-ship/host so arduino-cli resolves
+    # the local platform without a release install.  Strategy:
+    #   1. Try a symlink (fast, zero disk cost, requires Developer Mode on
+    #      Windows or an admin/elevated process).
+    #   2. On OSError fall back to a full directory copy (always works).
     #
-    # Failure modes worth knowing about:
-    #   - target already exists and points elsewhere → fail loudly so we
-    #     don't silently overwrite a real install (e.g. someone has a
-    #     hand-cloned copy at the same path).
-    #   - target already exists and points at this repo → reuse, do not
-    #     attempt to unlink at session end (we didn't create it).
-    #   - Windows without Developer Mode → symlink_to raises OSError.
+    # Failure modes:
+    #   - target is a symlink pointing elsewhere → fail loudly.
+    #   - target is a plain directory → fail loudly (conflict with real install).
+    #   - target is a symlink pointing at this repo → reuse, skip cleanup.
     target = _sketchbook_dir() / "hardware" / PACKAGE_NAME / ARCH
-    created = False
+    created = ""  # "symlink" | "copy" | "" (pre-existing, skip cleanup)
 
     if target.exists() or target.is_symlink():
         if target.is_symlink() and Path(os.readlink(target)) == REPO_ROOT:
@@ -81,14 +75,24 @@ def _local_platform_symlink():
             )
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.symlink_to(REPO_ROOT, target_is_directory=True)
-        created = True
+        try:
+            target.symlink_to(REPO_ROOT, target_is_directory=True)
+            created = "symlink"
+        except OSError:
+            shutil.copytree(str(REPO_ROOT), str(target))
+            created = "copy"
 
     yield target
 
-    if created and target.is_symlink():
+    if created == "symlink" and target.is_symlink():
         target.unlink()
-        # Clean up the parent dir if we created it and it's now empty.
+        parent = target.parent
+        try:
+            parent.rmdir()
+        except OSError:
+            pass
+    elif created == "copy" and target.exists():
+        shutil.rmtree(target)
         parent = target.parent
         try:
             parent.rmdir()
