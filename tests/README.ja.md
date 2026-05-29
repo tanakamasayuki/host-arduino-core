@@ -214,6 +214,18 @@ esp32:
 
 ## ファイル I/O の慣習
 
+## host ランタイムの起動順
+
+host プロファイルのテストでは、ランタイムは TCP 経由の `Serial` 接続情報を
+先に公開し、pytest の `dut` クライアントが接続してから sketch の `setup()` に
+入る。したがって `TEST start ...` のような最初の行は、接続前 `Serial`
+バッファに依存せずに期待できる。
+
+host テストで最初の期待行より前に timeout した場合は、artifact の
+`*.host-arduino.log` を確認する。`runtime_client_ready` があれば pytest は接続済みで
+sketch の開始も許可されている。これが無い場合は launcher または TCP 接続段階の
+問題として見る。
+
 スケッチが fixture ファイルを読んだり生成物を書き出したりする場合の
 推奨ルール：
 

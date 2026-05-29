@@ -228,6 +228,18 @@ esp32:
 
 ## File I/O convention
 
+## Host runtime startup
+
+For host-profile tests, the runtime publishes its TCP-backed `Serial`
+connection info first and only enters the sketch's `setup()` after the pytest
+`dut` client connects. Tests can therefore expect first-line output such as
+`TEST start ...` without relying on pre-connection Serial buffering.
+
+If a host test times out before the first expected line, inspect the
+`*.host-arduino.log` artifact. `runtime_client_ready` means pytest connected
+and the sketch was allowed to start; missing that event points to the launcher
+or TCP attach phase instead.
+
 When a sketch needs to read fixture data or write generated artifacts:
 
 - **Working directory at runtime is the sketch directory** (the one
