@@ -16,6 +16,7 @@ bool runtimeStart(int argc, char **argv);
 void runtimeStop();
 bool runtimeShouldStop();
 void runtimePoll();
+void runtimeLogInfo(const char *event, const char *message = nullptr);
 size_t serialWrite(const char *data, size_t len);
 int serialAvailable();
 int serialRead();

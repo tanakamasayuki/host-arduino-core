@@ -664,6 +664,11 @@ void runtimePoll()
     std::this_thread::sleep_for(std::chrono::milliseconds(0));
 }
 
+void runtimeLogInfo(const char *event, const char *message)
+{
+    logLine(LOG_INFO, event ? event : "runtime_note", message ? message : "");
+}
+
 size_t serialWrite(const char *data, size_t len)
 {
     if (!data || len == 0) {

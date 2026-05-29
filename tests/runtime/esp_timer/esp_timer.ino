@@ -41,6 +41,8 @@ void setup() {
     delay(500);
     esp_timer_stop(h);
     const int fired = g_ticks.load();
+    Serial.print("fired=");
+    Serial.println(fired);
     Serial.print("fired_lower=");
     Serial.println(fired >= 4 ? "ok" : "fail");
     Serial.print("fired_upper=");
@@ -49,6 +51,8 @@ void setup() {
     // After stop, no more ticks.
     delay(80);
     const int after_stop = g_ticks.load() - fired;
+    Serial.print("after_stop_count=");
+    Serial.println(after_stop);
     Serial.print("after_stop=");
     Serial.println(after_stop <= 1 ? "ok" : "fail");
 
