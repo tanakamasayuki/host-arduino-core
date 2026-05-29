@@ -73,7 +73,11 @@ int main(int argc, char **argv) __attribute__((weak));
 #endif
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+    _putenv("SDL_VIDEODRIVER=dummy");
+#else
     setenv("SDL_VIDEODRIVER", "dummy", 1);
+#endif
     if (!HostArduino::runtimeStart(argc, argv))
     {
         return 1;
