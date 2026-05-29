@@ -449,6 +449,7 @@ Arduino IDE の **Tools → Mode → LovyanGFX / M5GFX headless** を選ぶ
 ## ランタイム環境変数
 
 - `HOST_ARDUINO_CONNECT_TIMEOUT_MS`: 子プロセスが最初の TCP クライアント接続を待つ時間。既定値は `10000`。
+- `HOST_ARDUINO_START_DELAY_MS`: 最初の TCP クライアント接続後、`setup()` を開始する前の短い settle 待ち。既定値は `250`。
 - `HOST_ARDUINO_PARENT_WAIT_MS`: ランチャーが子プロセスの接続情報公開を待つ時間。既定値は `5000`。
 - `HOST_ARDUINO_SERIAL_BUFFER_SIZE`: `Serial` 出力バッファの最大バイト数。既定値は `65536`。
 - `HOST_ARDUINO_LOG`: ランタイムログの出力先。既定値は `<executable>.host-arduino.log`。`0`、`false`、`off` を指定するとログを無効化し、ファイルパスを指定すると出力先を変更できます。

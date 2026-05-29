@@ -454,6 +454,7 @@ Direct `fopen()` calls from a sketch do not use this mapping. They follow the no
 ## Runtime Environment Variables
 
 - `HOST_ARDUINO_CONNECT_TIMEOUT_MS`: child process timeout while waiting for the first TCP client. Default: `10000`.
+- `HOST_ARDUINO_START_DELAY_MS`: short settle delay after the first TCP client connects and before `setup()` starts. Default: `250`.
 - `HOST_ARDUINO_PARENT_WAIT_MS`: launcher timeout while waiting for the child to publish connection info. Default: `5000`.
 - `HOST_ARDUINO_SERIAL_BUFFER_SIZE`: maximum buffered Serial output bytes. Default: `65536`.
 - `HOST_ARDUINO_LOG`: runtime log output. Default: `<executable>.host-arduino.log`. Set to `0`, `false`, or `off` to disable logging, or set a file path to override the destination.
