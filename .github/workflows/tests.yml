@@ -20,10 +20,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libsdl2-dev
 
-      - name: Add MinGW to PATH
+      - name: Install SDL2 and OpenSSL (Windows)
         if: runner.os == 'Windows'
         shell: bash
-        run: echo "C:/msys64/mingw64/bin" >> "$GITHUB_PATH"
+        run: C:/msys64/usr/bin/pacman -S --noconfirm mingw-w64-ucrt-x86_64-SDL2 mingw-w64-ucrt-x86_64-openssl
+
+      - name: Add UCRT64 toolchain to PATH
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "C:/msys64/ucrt64/bin" >> "$GITHUB_PATH"
 
       - name: Setup arduino-cli
         uses: arduino/setup-arduino-cli@v2
