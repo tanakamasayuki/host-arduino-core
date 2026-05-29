@@ -88,6 +88,16 @@ jobs:
           path: tests/graphics/**/output/**
           if-no-files-found: ignore
 
+      - name: Upload host runtime connection logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: host-runtime-logs-${{ matrix.os }}
+          path: |
+            tests/**/build/**/*.host-arduino.log
+            tests/**/build/**/*.host-arduino.json
+          if-no-files-found: ignore
+
       - name: Upload pytest HTML report
         if: always()
         uses: actions/upload-artifact@v4
