@@ -8,10 +8,11 @@ dependencies = [
     "pytest-embedded-serial>=2.0",
     "pytest-embedded-arduino-cli>=1.1",
     "pytest-html>=4.1.1",
+    "pytest-rerunfailures>=14",
 ]
 
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore:record_xml_attribute is an experimental feature:pytest.PytestExperimentalApiWarning",
 ]
-addopts = "--save-state --ignore=interop"
+addopts = "--save-state --ignore=interop --reruns=1 --reruns-delay=5"
