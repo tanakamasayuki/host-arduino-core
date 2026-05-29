@@ -585,6 +585,31 @@ bool startServer()
     return true;
 }
 
+bool waitForClient()
+{
+    const unsigned long timeout_ms = envUnsignedLong("HOST_ARDUINO_CONNECT_TIMEOUT_MS", kDefaultConnectTimeoutMs);
+    {
+        std::ostringstream oss;
+        oss << "timeout_ms=" << timeout_ms;
+        logLine(LOG_INFO, "runtime_wait_client", oss.str());
+    }
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+    while (!g_connected_once.load() && !g_stop.load()) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            setExitReason("connect_timeout");
+            logLine(LOG_INFO, "runtime_wait_client_timeout", "");
+            g_stop = true;
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    if (!g_connected_once.load()) {
+        return false;
+    }
+    logLine(LOG_INFO, "runtime_client_ready", "");
+    return true;
+}
+
 int runLauncher(int argc, char **argv)
 {
     (void)argc;
@@ -652,8 +677,13 @@ bool runtimeStart(int argc, char **argv)
     if (!ok) {
         setExitReason("runtime_start_failed");
         logLine(LOG_ERROR, "runtime_start_failed", "");
+        return false;
     }
-    return ok;
+    if (!waitForClient()) {
+        logLine(LOG_ERROR, "runtime_start_failed", "reason=client_not_connected");
+        return false;
+    }
+    return true;
 }
 
 void runtimeStop()
