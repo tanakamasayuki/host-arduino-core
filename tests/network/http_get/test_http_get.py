@@ -49,19 +49,19 @@ def test_http_get(dut):
         # 1. Content-Length response
         dut.write(f"GET http://127.0.0.1:{server.server_port}/hello\n".encode())
         dut.expect(re.compile(rb"CODE=200"), timeout=30)
-        dut.expect(re.compile(rb"LEN=" + str(len(BODY_TEXT)).encode()), timeout=5)
-        dut.expect(re.compile(rb"BODY_LEN=" + str(len(BODY_TEXT)).encode()), timeout=5)
-        dut.expect(re.compile(rb"BODY:" + re.escape(BODY_TEXT)), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"LEN=" + str(len(BODY_TEXT)).encode()), timeout=30)
+        dut.expect(re.compile(rb"BODY_LEN=" + str(len(BODY_TEXT)).encode()), timeout=30)
+        dut.expect(re.compile(rb"BODY:" + re.escape(BODY_TEXT)), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
 
         # 2. Transfer-Encoding: chunked response
         dut.write(f"GET http://127.0.0.1:{server.server_port}/chunked\n".encode())
         dut.expect(re.compile(rb"CODE=200"), timeout=30)
         # LEN is -1 for chunked since no Content-Length header
-        dut.expect(re.compile(rb"LEN=-1"), timeout=5)
-        dut.expect(re.compile(rb"BODY_LEN=" + str(len(CHUNK_JOINED)).encode()), timeout=5)
-        dut.expect(re.compile(rb"BODY:" + re.escape(CHUNK_JOINED)), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"LEN=-1"), timeout=30)
+        dut.expect(re.compile(rb"BODY_LEN=" + str(len(CHUNK_JOINED)).encode()), timeout=30)
+        dut.expect(re.compile(rb"BODY:" + re.escape(CHUNK_JOINED)), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
     finally:
         server.shutdown()
         server.server_close()

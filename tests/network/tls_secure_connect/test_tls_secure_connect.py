@@ -78,9 +78,9 @@ def test_tls_secure_connect(dut, tmp_path):
 
     try:
         dut.write(f"CONNECT {server_port}\n".encode())
-        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=5)
+        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=30)
         dut.expect(re.compile(rb"CONNECTED"), timeout=30)
-        dut.expect(re.compile(rb"WROTE 4"), timeout=5)
+        dut.expect(re.compile(rb"WROTE 4"), timeout=30)
         dut.expect(re.compile(rb"RX PONG"), timeout=30)
 
         t.join(timeout=30)

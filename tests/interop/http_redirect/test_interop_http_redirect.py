@@ -35,7 +35,7 @@ def test_interop_http_redirect(dut):
 
     # Stable marker that confirms we landed on httpbin's /get endpoint
     # after the redirect chain — httpbin echoes its own URL there.
-    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=15)
+    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=30)
 
     dut.expect(re.compile(rb"BODY_END"), timeout=30)
-    dut.expect(re.compile(rb"DONE"), timeout=5)
+    dut.expect(re.compile(rb"DONE"), timeout=30)

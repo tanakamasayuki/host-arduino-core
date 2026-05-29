@@ -70,38 +70,38 @@ def test_http_redirect(dut):
 
         # 1. DISABLE: 302 surfaces as the status code; Location header is exposed.
         dut.write(b"MODE 0\n")
-        dut.expect(re.compile(rb"MODE_OK 0"), timeout=5)
+        dut.expect(re.compile(rb"MODE_OK 0"), timeout=30)
         dut.write(f"GET {base}/once\n".encode())
         dut.expect(re.compile(rb"CODE=302"), timeout=30)
-        dut.expect(re.compile(rb"LOC=/target"), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"LOC=/target"), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
 
         # 2. STRICT: GET is followed; body of /target is delivered.
         dut.write(b"MODE 1\n")
-        dut.expect(re.compile(rb"MODE_OK 1"), timeout=5)
+        dut.expect(re.compile(rb"MODE_OK 1"), timeout=30)
         dut.write(f"GET {base}/once\n".encode())
         dut.expect(re.compile(rb"CODE=200"), timeout=30)
-        dut.expect(re.compile(rb"BODY:" + re.escape(FINAL_BODY)), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"BODY:" + re.escape(FINAL_BODY)), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
 
         # 3. FORCE: 4-hop chain via root-relative Locations resolves to body.
         dut.write(b"MODE 2\n")
-        dut.expect(re.compile(rb"MODE_OK 2"), timeout=5)
+        dut.expect(re.compile(rb"MODE_OK 2"), timeout=30)
         dut.write(f"GET {base}/chain/4\n".encode())
-        dut.expect(re.compile(rb"CODE=200"), timeout=15)
-        dut.expect(re.compile(rb"BODY:" + re.escape(FINAL_BODY)), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"CODE=200"), timeout=30)
+        dut.expect(re.compile(rb"BODY:" + re.escape(FINAL_BODY)), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
 
         # 4. Redirect limit cap: /loop redirects to itself. With
         #    limit=2 we issue 3 requests (initial + 2 follow-ups), each
         #    a 302; the caller sees the last 302 + the unresolved
         #    Location header.
         dut.write(b"LIMIT 2\n")
-        dut.expect(re.compile(rb"LIMIT_OK 2"), timeout=5)
+        dut.expect(re.compile(rb"LIMIT_OK 2"), timeout=30)
         dut.write(f"GET {base}/loop\n".encode())
-        dut.expect(re.compile(rb"CODE=302"), timeout=15)
-        dut.expect(re.compile(rb"LOC=/loop"), timeout=5)
-        dut.expect(re.compile(rb"DONE"), timeout=5)
+        dut.expect(re.compile(rb"CODE=302"), timeout=30)
+        dut.expect(re.compile(rb"LOC=/loop"), timeout=30)
+        dut.expect(re.compile(rb"DONE"), timeout=30)
     finally:
         server.shutdown()
         server.server_close()

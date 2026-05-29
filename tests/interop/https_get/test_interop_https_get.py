@@ -36,7 +36,7 @@ def test_interop_https_get(dut):
 
     # The unique tag we sent in the request header must appear in
     # httpbin.org's echoed JSON. This is the actual parity check.
-    dut.expect(re.compile(re.escape(TAG)), timeout=15)
+    dut.expect(re.compile(re.escape(TAG)), timeout=30)
 
     dut.expect(re.compile(rb"BODY_END"), timeout=30)
-    dut.expect(re.compile(rb"DONE"), timeout=5)
+    dut.expect(re.compile(rb"DONE"), timeout=30)

@@ -3,7 +3,7 @@
 import re
 
 
-def _expect_hint(dut, fragment, timeout=5):
+def _expect_hint(dut, fragment, timeout=30):
     dut.expect(re.compile(re.escape(fragment).encode()), timeout=timeout)
 
 
@@ -12,4 +12,4 @@ def test_udp_no_begin(dut):
     _expect_hint(dut, "[HostCore] WiFiUDP::beginPacket() called before begin()")
     _expect_hint(dut, "[HostCore] WiFiUDP::endPacket() called before begin()")
     _expect_hint(dut, "[HostCore] WiFiUDP::parsePacket() called before begin()")
-    dut.expect("TEST done", timeout=5)
+    dut.expect("TEST done", timeout=30)

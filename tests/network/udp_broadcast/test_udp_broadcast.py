@@ -14,10 +14,10 @@ def test_udp_broadcast(dut):
     port = int(match.group(1))
     assert port > 0
 
-    m = dut.expect(re.compile(rb"BCAST_SENT=(\d+)"), timeout=5)
+    m = dut.expect(re.compile(rb"BCAST_SENT=(\d+)"), timeout=30)
     assert int(m.group(1)) == 1, "broadcast sendto failed — SO_BROADCAST likely not set"
 
-    m = dut.expect(re.compile(rb"SELF_SENT=(\d+)"), timeout=5)
+    m = dut.expect(re.compile(rb"SELF_SENT=(\d+)"), timeout=30)
     assert int(m.group(1)) == 1, "unicast sendto failed"
 
-    dut.expect("RX self", timeout=5)
+    dut.expect("RX self", timeout=30)

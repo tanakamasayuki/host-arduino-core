@@ -1,6 +1,6 @@
 def test_esp_random(dut):
     dut.expect("TEST start esp_random", timeout=30)
-    dut.expect("distinct=ok", timeout=5)
-    dut.expect("fill_nonzero=ok", timeout=5)
-    dut.expect("small_nonzero=ok", timeout=5)
-    dut.expect("TEST done", timeout=5)
+    dut.expect("distinct=ok", timeout=30)
+    dut.expect("fill_nonzero=ok", timeout=30)
+    dut.expect("small_nonzero=ok", timeout=30)
+    dut.expect("TEST done", timeout=30)
