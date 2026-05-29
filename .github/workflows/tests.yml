@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repo
@@ -23,6 +23,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libsdl2-dev
+
+      - name: Install SDL2 and OpenSSL (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sdl2 openssl
+
+      - name: Add Homebrew include/lib paths (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "CPATH=$(brew --prefix sdl2)/include:$(brew --prefix openssl)/include" >> "$GITHUB_ENV"
+          echo "LIBRARY_PATH=$(brew --prefix sdl2)/lib:$(brew --prefix openssl)/lib" >> "$GITHUB_ENV"
 
       - name: Install SDL2 and OpenSSL (Windows)
         if: runner.os == 'Windows'
