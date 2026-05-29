@@ -15,7 +15,7 @@ def test_udp_recv(dut):
         sock.sendto(b"hello-udp", ("127.0.0.1", port))
         m = dut.expect(
             re.compile(rb"RX from 127\.0\.0\.1:(\d+) (\d+) (\S+)"),
-            timeout=5,
+            timeout=60,
         )
         sender_port = int(m.group(1))
         length = int(m.group(2))

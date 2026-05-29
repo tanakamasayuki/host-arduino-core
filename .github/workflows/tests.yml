@@ -40,6 +40,9 @@ jobs:
         run: |
           Set-MpPreference -DisableRealtimeMonitoring $true
           Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableSmartScreen" -Value 0 -Force
+          Add-MpPreference -ExclusionPath "D:\a"
+          Add-MpPreference -ExclusionPath "C:\Users\runneradmin\AppData\Local\Arduino15"
+          Add-MpPreference -ExclusionPath "C:\Users\runneradmin\AppData\Local\Temp\pytest-embedded"
 
       - name: Install SDL2 and OpenSSL (Windows)
         if: runner.os == 'Windows'

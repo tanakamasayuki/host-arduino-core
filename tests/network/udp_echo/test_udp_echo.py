@@ -17,7 +17,7 @@ def test_udp_echo(dut):
             sock.sendto(payload, ("127.0.0.1", sketch_port))
             dut.expect(
                 re.compile(rb"ECHO " + str(len(payload)).encode() + rb"\b"),
-                timeout=5,
+                timeout=60,
             )
             data, addr = sock.recvfrom(2048)
             assert data == payload

@@ -18,7 +18,7 @@ def test_tcp_echo(dut):
             sock.sendall(payload)
             dut.expect(
                 re.compile(rb"ECHO " + str(len(payload)).encode() + rb"\b"),
-                timeout=5,
+                timeout=60,
             )
 
             received = b""

@@ -12,11 +12,11 @@ import re
 def test_tls_openssl(dut):
     header = dut.expect(
         re.compile(rb"OPENSSL_HEADER=(OpenSSL[^\r\n]+)"),
-        timeout=30,
+        timeout=60,
     ).group(1).decode()
     runtime = dut.expect(
         re.compile(rb"OPENSSL_RUNTIME=(OpenSSL[^\r\n]+)"),
-        timeout=5,
+        timeout=60,
     ).group(1).decode()
 
     assert header.startswith("OpenSSL "), f"unexpected header version: {header!r}"
