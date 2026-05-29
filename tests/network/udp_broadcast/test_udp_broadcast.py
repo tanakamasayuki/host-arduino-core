@@ -1,8 +1,9 @@
-"""Verifies WiFiUDP enables SO_BROADCAST so sending to 255.255.255.255 works.
+"""Verifies WiFiUDP enables SO_BROADCAST so sending to a broadcast address works.
 
-Without SO_BROADCAST, sendto() to a broadcast address returns EACCES on
-Linux and endPacket() reports 0. We assert it reports 1, and also confirm
-that a normal unicast send still works (sanity check).
+Uses 127.255.255.255 (loopback subnet broadcast) instead of 255.255.255.255
+so the test passes on macOS CI where there is no real NIC with a broadcast route.
+Without SO_BROADCAST, sendto() to a broadcast address returns EACCES on Linux
+and endPacket() reports 0.
 """
 
 import re

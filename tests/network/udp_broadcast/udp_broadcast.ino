@@ -1,6 +1,7 @@
 // Verifies SO_BROADCAST is enabled by WiFiUDP::begin() — sending to
-// 255.255.255.255 should succeed (endPacket returns 1). Without the
-// option set, Linux returns EACCES from sendto().
+// the loopback subnet broadcast (127.255.255.255) should succeed on all
+// platforms. Using 127.255.255.255 (not 255.255.255.255) avoids the macOS
+// restriction that rejects limited-broadcast sendto without a real NIC.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -20,7 +21,7 @@ void setup()
     Serial.print("UDP_PORT=");
     Serial.println(udp.localPort());
 
-    const IPAddress bcast(255, 255, 255, 255);
+    const IPAddress bcast(127, 255, 255, 255);
     udp.beginPacket(bcast, 9);
     udp.write((const uint8_t *)"bcast", 5);
     const int sent = udp.endPacket();

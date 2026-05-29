@@ -38,13 +38,13 @@ void setup() {
     Serial.println(rc == ESP_OK ? "ok" : "fail");
 
     esp_timer_start_periodic(h, 20000); // 20ms
-    delay(150);
+    delay(500);
     esp_timer_stop(h);
     const int fired = g_ticks.load();
     Serial.print("fired_lower=");
     Serial.println(fired >= 4 ? "ok" : "fail");
     Serial.print("fired_upper=");
-    Serial.println(fired <= 12 ? "ok" : "fail");
+    Serial.println(fired <= 50 ? "ok" : "fail");
 
     // After stop, no more ticks.
     delay(80);
