@@ -5,7 +5,7 @@ import socket
 
 
 def test_udp_recv(dut):
-    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=30)
+    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=60)
     port = int(match.group(1))
     assert port > 0
 

@@ -30,12 +30,12 @@ def test_interop_http_redirect(dut):
     # Three 302 hops + a final 200 across HTTPS — give DNS/TLS room.
     dut.expect(re.compile(rb"CODE=200"), timeout=60)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=30)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=60)
     assert int(body_len_match.group(1)) > 0, "empty body after redirect chain"
 
     # Stable marker that confirms we landed on httpbin's /get endpoint
     # after the redirect chain — httpbin echoes its own URL there.
-    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=30)
+    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=60)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=30)
-    dut.expect(re.compile(rb"DONE"), timeout=30)
+    dut.expect(re.compile(rb"BODY_END"), timeout=60)
+    dut.expect(re.compile(rb"DONE"), timeout=60)

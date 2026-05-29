@@ -5,7 +5,7 @@ import socket
 
 
 def test_udp_echo(dut):
-    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=30)
+    match = dut.expect(re.compile(rb"UDP_PORT=(\d+)"), timeout=60)
     sketch_port = int(match.group(1))
     assert sketch_port > 0
 

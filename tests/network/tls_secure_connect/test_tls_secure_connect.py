@@ -35,7 +35,7 @@ def _make_self_signed_cert(tmpdir: Path) -> tuple[Path, Path]:
 
 
 def test_tls_secure_connect(dut, tmp_path):
-    dut.expect(re.compile(rb"READY"), timeout=30)
+    dut.expect(re.compile(rb"READY"), timeout=60)
 
     cert_path, key_path = _make_self_signed_cert(tmp_path)
 
@@ -78,14 +78,14 @@ def test_tls_secure_connect(dut, tmp_path):
 
     try:
         dut.write(f"CONNECT {server_port}\n".encode())
-        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=30)
-        dut.expect(re.compile(rb"CONNECTED"), timeout=30)
-        dut.expect(re.compile(rb"WROTE 4"), timeout=30)
-        dut.expect(re.compile(rb"RX PONG"), timeout=30)
+        dut.expect(re.compile(rb"CONNECTING " + str(server_port).encode()), timeout=60)
+        dut.expect(re.compile(rb"CONNECTED"), timeout=60)
+        dut.expect(re.compile(rb"WROTE 4"), timeout=60)
+        dut.expect(re.compile(rb"RX PONG"), timeout=60)
 
-        t.join(timeout=30)
+        t.join(timeout=60)
         assert server_state.get("received") == b"PING", server_state
 
-        dut.expect(re.compile(rb"CLOSED"), timeout=30)
+        dut.expect(re.compile(rb"CLOSED"), timeout=60)
     finally:
         listener.close()

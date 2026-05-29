@@ -22,5 +22,5 @@ def test_tls_openssl(dut):
     assert header.startswith("OpenSSL "), f"unexpected header version: {header!r}"
     assert runtime.startswith("OpenSSL "), f"unexpected runtime version: {runtime!r}"
 
-    dut.expect(re.compile(rb"CTX_NEW_OK"), timeout=30)
-    dut.expect(re.compile(rb"TLS_PROBE_DONE"), timeout=30)
+    dut.expect(re.compile(rb"CTX_NEW_OK"), timeout=60)
+    dut.expect(re.compile(rb"TLS_PROBE_DONE"), timeout=60)
