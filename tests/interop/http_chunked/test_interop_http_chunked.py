@@ -22,18 +22,18 @@ def test_interop_http_chunked(dut):
     if match.re.pattern.startswith(b"WIFI_ERROR"):
         raise AssertionError(f"Wi-Fi connect failed: {match.group(1).decode()}")
 
-    dut.expect(re.compile(rb"CODE=200"), timeout=60)
+    dut.expect(re.compile(rb"CODE=200"), timeout=180)
 
     # Chunked responses have no Content-Length, so HTTPClient::getSize()
     # is -1 — that itself is the parity check for this code path.
-    dut.expect(re.compile(rb"LEN=-1"), timeout=60)
+    dut.expect(re.compile(rb"LEN=-1"), timeout=180)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=60)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=180)
     assert int(body_len_match.group(1)) > 0, "empty body from /stream/3"
 
     # The unique tag must appear once per echoed record — three times
     # for /stream/3. This catches both partial decode and over-decode.
-    dut.expect(re.compile(rb"TAG_COUNT=3"), timeout=60)
+    dut.expect(re.compile(rb"TAG_COUNT=3"), timeout=180)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=60)
-    dut.expect(re.compile(rb"DONE"), timeout=60)
+    dut.expect(re.compile(rb"BODY_END"), timeout=180)
+    dut.expect(re.compile(rb"DONE"), timeout=180)

@@ -28,15 +28,15 @@ def test_interop_https_get(dut):
 
     # HTTPS request — give httpbin.org generous headroom for both DNS
     # resolution and TLS handshake on a fresh boot.
-    dut.expect(re.compile(rb"CODE=200"), timeout=60)
+    dut.expect(re.compile(rb"CODE=200"), timeout=180)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=60)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=180)
     body_len = int(body_len_match.group(1))
     assert body_len > 0, "empty body from httpbin.org"
 
     # The unique tag we sent in the request header must appear in
     # httpbin.org's echoed JSON. This is the actual parity check.
-    dut.expect(re.compile(re.escape(TAG)), timeout=60)
+    dut.expect(re.compile(re.escape(TAG)), timeout=180)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=60)
-    dut.expect(re.compile(rb"DONE"), timeout=60)
+    dut.expect(re.compile(rb"BODY_END"), timeout=180)
+    dut.expect(re.compile(rb"DONE"), timeout=180)

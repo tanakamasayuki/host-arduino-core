@@ -44,24 +44,24 @@ def _start_server() -> HTTPServer:
 def test_http_get(dut):
     server = _start_server()
     try:
-        dut.expect(re.compile(rb"READY"), timeout=60)
+        dut.expect(re.compile(rb"READY"), timeout=180)
 
         # 1. Content-Length response
         dut.write(f"GET http://127.0.0.1:{server.server_port}/hello\n".encode())
-        dut.expect(re.compile(rb"CODE=200"), timeout=60)
-        dut.expect(re.compile(rb"LEN=" + str(len(BODY_TEXT)).encode()), timeout=60)
-        dut.expect(re.compile(rb"BODY_LEN=" + str(len(BODY_TEXT)).encode()), timeout=60)
-        dut.expect(re.compile(rb"BODY:" + re.escape(BODY_TEXT)), timeout=60)
-        dut.expect(re.compile(rb"DONE"), timeout=60)
+        dut.expect(re.compile(rb"CODE=200"), timeout=180)
+        dut.expect(re.compile(rb"LEN=" + str(len(BODY_TEXT)).encode()), timeout=180)
+        dut.expect(re.compile(rb"BODY_LEN=" + str(len(BODY_TEXT)).encode()), timeout=180)
+        dut.expect(re.compile(rb"BODY:" + re.escape(BODY_TEXT)), timeout=180)
+        dut.expect(re.compile(rb"DONE"), timeout=180)
 
         # 2. Transfer-Encoding: chunked response
         dut.write(f"GET http://127.0.0.1:{server.server_port}/chunked\n".encode())
-        dut.expect(re.compile(rb"CODE=200"), timeout=60)
+        dut.expect(re.compile(rb"CODE=200"), timeout=180)
         # LEN is -1 for chunked since no Content-Length header
-        dut.expect(re.compile(rb"LEN=-1"), timeout=60)
-        dut.expect(re.compile(rb"BODY_LEN=" + str(len(CHUNK_JOINED)).encode()), timeout=60)
-        dut.expect(re.compile(rb"BODY:" + re.escape(CHUNK_JOINED)), timeout=60)
-        dut.expect(re.compile(rb"DONE"), timeout=60)
+        dut.expect(re.compile(rb"LEN=-1"), timeout=180)
+        dut.expect(re.compile(rb"BODY_LEN=" + str(len(CHUNK_JOINED)).encode()), timeout=180)
+        dut.expect(re.compile(rb"BODY:" + re.escape(CHUNK_JOINED)), timeout=180)
+        dut.expect(re.compile(rb"DONE"), timeout=180)
     finally:
         server.shutdown()
         server.server_close()

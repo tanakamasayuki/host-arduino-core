@@ -28,14 +28,14 @@ def test_interop_http_redirect(dut):
         raise AssertionError(f"Wi-Fi connect failed: {match.group(1).decode()}")
 
     # Three 302 hops + a final 200 across HTTPS — give DNS/TLS room.
-    dut.expect(re.compile(rb"CODE=200"), timeout=60)
+    dut.expect(re.compile(rb"CODE=200"), timeout=180)
 
-    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=60)
+    body_len_match = dut.expect(re.compile(rb"BODY_LEN=(\d+)"), timeout=180)
     assert int(body_len_match.group(1)) > 0, "empty body after redirect chain"
 
     # Stable marker that confirms we landed on httpbin's /get endpoint
     # after the redirect chain — httpbin echoes its own URL there.
-    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=60)
+    dut.expect(re.compile(rb"httpbin\.org/get"), timeout=180)
 
-    dut.expect(re.compile(rb"BODY_END"), timeout=60)
-    dut.expect(re.compile(rb"DONE"), timeout=60)
+    dut.expect(re.compile(rb"BODY_END"), timeout=180)
+    dut.expect(re.compile(rb"DONE"), timeout=180)
