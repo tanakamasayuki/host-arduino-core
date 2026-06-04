@@ -59,7 +59,7 @@ jobs:
       - name: Setup arduino-cli
         uses: arduino/setup-arduino-cli@v2
         with:
-          version: 1.4.0
+          version: 1.5.0
 
       - name: Initialize arduino-cli sketchbook
         run: |
