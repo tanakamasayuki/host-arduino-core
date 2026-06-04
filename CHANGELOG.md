@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.3.1
 - (EN) Added `recipe.preproc.macros` to `platform.txt` so Arduino CLI 1.5.0 can preprocess the new `.ino.cpp.merged` sketch intermediate as C++ (`-x c++ -E -CC`). This fixes Windows build failures exposed by Arduino CLI 1.5.0's sketch build-cache path while remaining compatible with Arduino CLI 1.4.0. CI now pins `arduino-cli` to 1.5.0 so the `.merged` route is covered on Linux / Windows / macOS.
 - (JA) `platform.txt` に `recipe.preproc.macros` を追加し、Arduino CLI 1.5.0 が生成する `.ino.cpp.merged` 中間ファイルを C++ として前処理するようにした（`-x c++ -E -CC`）。Arduino CLI 1.5.0 の sketch build-cache 経路で露出した Windows ビルド失敗を修正しつつ、Arduino CLI 1.4.0 との互換性は維持。CI は `arduino-cli` を 1.5.0 に pin し、Linux / Windows / macOS で `.merged` 経路をカバーする。
 
