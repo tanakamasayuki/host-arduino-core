@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.4.2
+- (EN) Made `tests/runtime/esp_timer` less timing-fragile on busy macOS runners by waiting up to 2 seconds for the periodic callback to fire four times instead of assuming a fixed 500 ms window is always enough for the timer thread to start and run.
+- (JA) 混雑した macOS runner で `tests/runtime/esp_timer` がタイミング依存で失敗しないよう、固定 500 ms の待ち時間に依存せず、periodic callback が 4 回発火するまで最大 2 秒待つ形に変更した。
+- (EN) Changed the `Host Display` board defaults to a visible M5Stack SDL target (`board_M5Stack`, `x1`, rotation `0`) instead of leaving the display board, scale, and rotation disabled by default.
+- (JA) `Host Display` ボードのデフォルトを、画面なしではなく表示可能な M5Stack SDL ターゲット（`board_M5Stack`、`x1`、回転 `0`）に変更した。
+
 ## 1.4.1
 - (EN) Fixed the release workflow so `scripts/bump_version.py` runs during release preparation and the resulting `platform.txt` / bundled example `sketch.yaml` version updates are committed back to `main`. The bundled examples now pin `lang-ship:host (1.4.0)` while keeping the existing merged package index URL.
 - (JA) release workflow を修正し、リリース準備時に `scripts/bump_version.py` を実行して、更新された `platform.txt` と同梱 example `sketch.yaml` のバージョンを `main` へコミットするようにした。同梱 example は既存の merged package index URL を維持したまま `lang-ship:host (1.4.0)` を pin する。

@@ -36,8 +36,11 @@ display.build.extra_flags_mode=-DNATIVE_USE_SDL2 -DHOST_ARDUINO_DISPLAY -lSDL2
 display.build.extra_flags_mode.macosx=-DNATIVE_USE_SDL2 -DHOST_ARDUINO_DISPLAY -DLGFX_SDL -lSDL2
 display.build.extra_flags_mode.windows=-DNATIVE_USE_SDL2 -DHOST_ARDUINO_DISPLAY -DLGFX_SDL -lSDL2
 display.build.extra_flags_tls=
+display.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Stack -DHOST_DISPLAY_WIDTH=320 -DHOST_DISPLAY_HEIGHT=240
+display.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=1 -DHOST_DISPLAY_SCALE=1
+display.build.extra_flags_m5gfx_rotation=-DM5GFX_ROTATION=0 -DHOST_DISPLAY_ROTATION=0
 
-display.menu.m5gfx_board=disabled
+display.menu.m5gfx_board=board_M5Stack
 display.menu.m5gfx_board.disabled=Disabled
 display.menu.m5gfx_board.disabled.build.extra_flags_m5gfx_board=
 display.menu.m5gfx_board.board_M5Stack=M5Stack (320x240)
@@ -65,7 +68,7 @@ display.menu.m5gfx_board.board_M5AtomS3.build.extra_flags_m5gfx_board=-DM5GFX_SH
 display.menu.m5gfx_board.board_M5Paper=M5Paper (540x960)
 display.menu.m5gfx_board.board_M5Paper.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Paper -DHOST_DISPLAY_WIDTH=540 -DHOST_DISPLAY_HEIGHT=960
 
-display.menu.m5gfx_scale=disabled
+display.menu.m5gfx_scale=x1
 display.menu.m5gfx_scale.disabled=Disabled
 display.menu.m5gfx_scale.disabled.build.extra_flags_m5gfx_scale=
 display.menu.m5gfx_scale.x1=x1
@@ -79,7 +82,7 @@ display.menu.m5gfx_scale.x4.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=4 -DHOST
 display.menu.m5gfx_scale.x8=x8
 display.menu.m5gfx_scale.x8.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=8 -DHOST_DISPLAY_SCALE=8
 
-display.menu.m5gfx_rotation=disabled
+display.menu.m5gfx_rotation=r0
 display.menu.m5gfx_rotation.disabled=Disabled
 display.menu.m5gfx_rotation.disabled.build.extra_flags_m5gfx_rotation=
 display.menu.m5gfx_rotation.r0=0
