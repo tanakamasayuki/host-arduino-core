@@ -1,5 +1,5 @@
 name=Host Arduino Core
-version=1.4.2
+version=1.4.3
 
 compiler.path=
 compiler.c.cmd=gcc
@@ -38,6 +38,8 @@ recipe.cpp.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler
 
 tools.run.upload.pattern="{build.path}/{build.project_name}.out"
 tools.run.upload.pattern.windows="{build.path}/{build.project_name}.out"
+tools.run_display.upload.pattern="{build.path}/{build.project_name}.out"
+tools.run_display.upload.pattern.windows="cmd" /c start "" cmd /c "{build.path}/{build.project_name}.out"
 
 recipe.size.pattern={compiler.path}{compiler.size.cmd} {build.path}/{build.project_name}.out
 
