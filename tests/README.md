@@ -191,6 +191,24 @@ when you've touched the relevant code path**, not on every commit.
 profile, so `--profile esp32` simply skips them (pytest-embedded
 treats the missing profile as a profile mismatch).
 
+### Manual tests
+
+`manual/` holds checks that are not collected by a normal `uv run pytest`,
+such as GUI / SDL2 startup checks for the `display` board. Run only the file
+you want explicitly:
+
+```bash
+cd tests
+uv run pytest manual/display_m5unified/display_m5unified.py -q
+```
+
+This builds an M5Unified sketch for `lang-ship:host:display` and runs it with
+`SDL_VIDEODRIVER=dummy` only for the test process. It verifies startup,
+`Serial` output on stdout, and that no TCP connection-info file is created.
+For an actual foreground window check, run `arduino-cli compile --profile
+display` / `arduino-cli upload --profile display` in the same sketch
+directory.
+
 ## How the local-version trick works
 
 Host profiles in `sketch.yaml` intentionally do **not** declare a

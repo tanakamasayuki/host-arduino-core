@@ -176,6 +176,24 @@ uv run --env-file .env pytest --profile esp32 interop/
 いので `--profile esp32` 指定では収集対象外（pytest-embedded が
 profile-mismatch を skip 扱いにします）。
 
+### manual テスト
+
+`manual/` は通常の `uv run pytest` では自動収集されない手動確認用です。
+`display` ボードのように GUI / SDL2 起動を伴う確認を置きます。必要なもの
+だけファイルを明示して実行してください。
+
+```bash
+cd tests
+uv run pytest manual/display_m5unified/display_m5unified.py -q
+```
+
+このテストは `lang-ship:host:display` で M5Unified スケッチをビルドし、
+テスト中だけ `SDL_VIDEODRIVER=dummy` を付けて実行します。確認するのは
+「起動する」「`Serial` が stdout に出る」「TCP 接続情報ファイルを作らない」
+ところまでです。実際にウィンドウを開いて触る確認は、同じディレクトリで
+`arduino-cli compile --profile display` / `arduino-cli upload --profile display`
+を使って実行します。
+
 ## ローカル版を使う仕組み
 
 host profile の `sketch.yaml` では、意図的に `platforms:` ブロックを
