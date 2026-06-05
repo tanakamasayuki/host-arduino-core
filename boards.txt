@@ -41,8 +41,6 @@ display.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=1 -DHOST_DISPLAY_SCALE=1
 display.build.extra_flags_m5gfx_rotation=-DM5GFX_ROTATION=0 -DHOST_DISPLAY_ROTATION=0
 
 display.menu.m5gfx_board=board_M5Stack
-display.menu.m5gfx_board.disabled=Disabled
-display.menu.m5gfx_board.disabled.build.extra_flags_m5gfx_board=
 display.menu.m5gfx_board.board_M5Stack=M5Stack (320x240)
 display.menu.m5gfx_board.board_M5Stack.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Stack -DHOST_DISPLAY_WIDTH=320 -DHOST_DISPLAY_HEIGHT=240
 display.menu.m5gfx_board.board_M5StackCore2=M5Stack Core2 (320x240)
@@ -67,10 +65,10 @@ display.menu.m5gfx_board.board_M5AtomS3=M5AtomS3 (128x128)
 display.menu.m5gfx_board.board_M5AtomS3.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5AtomS3 -DHOST_DISPLAY_WIDTH=128 -DHOST_DISPLAY_HEIGHT=128
 display.menu.m5gfx_board.board_M5Paper=M5Paper (540x960)
 display.menu.m5gfx_board.board_M5Paper.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Paper -DHOST_DISPLAY_WIDTH=540 -DHOST_DISPLAY_HEIGHT=960
+display.menu.m5gfx_board.disabled=Disabled
+display.menu.m5gfx_board.disabled.build.extra_flags_m5gfx_board=
 
 display.menu.m5gfx_scale=x1
-display.menu.m5gfx_scale.disabled=Disabled
-display.menu.m5gfx_scale.disabled.build.extra_flags_m5gfx_scale=
 display.menu.m5gfx_scale.x1=x1
 display.menu.m5gfx_scale.x1.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=1 -DHOST_DISPLAY_SCALE=1
 display.menu.m5gfx_scale.x2=x2
@@ -81,10 +79,10 @@ display.menu.m5gfx_scale.x4=x4
 display.menu.m5gfx_scale.x4.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=4 -DHOST_DISPLAY_SCALE=4
 display.menu.m5gfx_scale.x8=x8
 display.menu.m5gfx_scale.x8.build.extra_flags_m5gfx_scale=-DM5GFX_SCALE=8 -DHOST_DISPLAY_SCALE=8
+display.menu.m5gfx_scale.disabled=Disabled
+display.menu.m5gfx_scale.disabled.build.extra_flags_m5gfx_scale=
 
 display.menu.m5gfx_rotation=r0
-display.menu.m5gfx_rotation.disabled=Disabled
-display.menu.m5gfx_rotation.disabled.build.extra_flags_m5gfx_rotation=
 display.menu.m5gfx_rotation.r0=0
 display.menu.m5gfx_rotation.r0.build.extra_flags_m5gfx_rotation=-DM5GFX_ROTATION=0 -DHOST_DISPLAY_ROTATION=0
 display.menu.m5gfx_rotation.r1=1
@@ -101,3 +99,5 @@ display.menu.m5gfx_rotation.r6=6
 display.menu.m5gfx_rotation.r6.build.extra_flags_m5gfx_rotation=-DM5GFX_ROTATION=6 -DHOST_DISPLAY_ROTATION=6
 display.menu.m5gfx_rotation.r7=7
 display.menu.m5gfx_rotation.r7.build.extra_flags_m5gfx_rotation=-DM5GFX_ROTATION=7 -DHOST_DISPLAY_ROTATION=7
+display.menu.m5gfx_rotation.disabled=Disabled
+display.menu.m5gfx_rotation.disabled.build.extra_flags_m5gfx_rotation=

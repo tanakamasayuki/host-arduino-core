@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Reordered the `Host Display` board menus so `M5Stack (320x240)`, `x1`, and rotation `0` are the first visible options. This avoids Arduino IDE initial menu selection falling back to `Disabled` even when default menu values are declared.
+- (JA) `Host Display` ボードのメニュー順を変更し、`M5Stack (320x240)`、`x1`、回転 `0` が先頭に出るようにした。デフォルト値を宣言していても Arduino IDE の初期選択が `Disabled` に戻るケースを避けるため。
 
 ## 1.4.3
 - (EN) No user-facing changes recorded.
