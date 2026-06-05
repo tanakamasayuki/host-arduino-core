@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.4.3
+- (EN) No user-facing changes recorded.
+- (JA) ユーザー向け変更の記録はありません。
+
 ## 1.4.2
 - (EN) Made `tests/runtime/esp_timer` less timing-fragile on busy macOS runners by waiting up to 2 seconds for the periodic callback to fire four times instead of assuming a fixed 500 ms window is always enough for the timer thread to start and run.
 - (JA) 混雑した macOS runner で `tests/runtime/esp_timer` がタイミング依存で失敗しないよう、固定 500 ms の待ち時間に依存せず、periodic callback が 4 回発火するまで最大 2 秒待つ形に変更した。

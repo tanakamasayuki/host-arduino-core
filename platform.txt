@@ -1,5 +1,5 @@
 name=Host Arduino Core
-version=1.4.2
+version=1.4.3
 
 compiler.path=
 compiler.c.cmd=gcc
