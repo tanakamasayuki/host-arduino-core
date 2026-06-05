@@ -221,11 +221,12 @@ use the same board choice.
 ```bash
 arduino-cli upload -p NONE \
   --fqbn 'lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0' \
-  examples/HostDisplayLovyanGFX
+  libraries/Host/examples/SDL2/HostDisplayLovyanGFX
 ```
 
 This starts the example as `M5Stack (320x240)` at 2x scale and rotation 0.
-For M5Unified, use `examples/HostDisplayM5Unified` with the same FQBN.
+For M5Unified, use `libraries/Host/examples/SDL2/HostDisplayM5Unified` with
+the same FQBN.
 
 M5Unified `M5_LOGE()` / `M5_LOGW()` / `M5_LOGI()` / `M5_LOGD()` /
 `M5_LOGV()` expand to `M5.Log`, not ESP32 `ESP_LOG*`. In PC / SDL2 builds,
@@ -238,13 +239,13 @@ and log console separate.
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
-- `scripts/bump_version.py`: updates the `version=` entry in `platform.txt`.
+- `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.
 - `scripts/build_package.py`: creates `package/host-arduino-core/`, produces the ZIP, computes SHA-256, and updates `package_index.json`.
 - `scripts/prepare_release.py`: moves `CHANGELOG.md` unreleased entries into the release version section.
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
 - `CHANGELOG.md`: release notes in English and Japanese. The release workflow uses the matching version section as the GitHub Release body.
 - `docs/requirements.ja.md`: requirements document.
-- `examples/`: ready-to-open sketches shipped in the release ZIP (e.g. `TLSProbe` for verifying the `tls=openssl` board menu option on each OS).
+- `libraries/Host/examples/`: ready-to-open sketches shipped in the release ZIP (e.g. `TLSProbe` for verifying the `tls=openssl` board menu option on each OS).
 - `package_index.json`: checked-in Boards Manager index, updated by the release workflow.
 
 ## Prerequisites
@@ -551,7 +552,7 @@ This creates:
 Release flow:
 
 1. Update `CHANGELOG.md`: add entries under `## Unreleased`.
-2. Run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt`.
+2. Run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt` and the example `sketch.yaml` versions.
 3. Commit changes to `main`.
 4. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
 5. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.

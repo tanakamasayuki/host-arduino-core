@@ -219,12 +219,13 @@ LovyanGFX スケッチからも同じ設定を参照できます。
 ```bash
 arduino-cli upload -p NONE \
   --fqbn 'lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0' \
-  examples/HostDisplayLovyanGFX
+  libraries/Host/examples/SDL2/HostDisplayLovyanGFX
 ```
 
 この例は `M5Stack (320x240)` を 2 倍表示、回転 0 で起動します。
-M5Unified を使う場合は `examples/HostDisplayM5Unified` も同じ FQBN で
-起動できます。
+M5Unified を使う場合は
+`libraries/Host/examples/SDL2/HostDisplayM5Unified` も同じ FQBN で起動
+できます。
 
 `Host Display` では TCP runtime を使いません。接続待ち、接続直後の settle
 待ち、接続情報ファイル、TCP 切断による自動終了は `Host` 専用の仕様にし、
@@ -243,13 +244,13 @@ SDL2 画面とは別にログコンソールへ表示されます。
 - `cores/host/Arduino.h`: Arduino スケッチ側に見せる最小 API。
 - `cores/host/HostRuntime.{h,cpp}`: ホスト実行ランタイム、TCP 経由の `Serial`、プロセス起動、接続情報ファイル処理。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
-- `scripts/bump_version.py`: `platform.txt` の `version=` を更新します。
+- `scripts/bump_version.py`: `platform.txt` の `version=` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョンを更新します。
 - `scripts/build_package.py`: `package/host-arduino-core/` を作成し、ZIP 作成、SHA-256 算出、`package_index.json` 更新を行います。
 - `scripts/prepare_release.py`: `CHANGELOG.md` の unreleased entries をリリースバージョンの節へ移動します。
 - `.github/workflows/release.yml`: タグ push または手動実行でパッケージを作成し、`package/` を `gh-pages` に公開し、GitHub Releases に成果物を添付します。
 - `CHANGELOG.md`: 英語・日本語併記のリリースノート。release workflow は対象バージョンの節を GitHub Release の本文に使います。
 - `docs/requirements.ja.md`: 要件定義書。
-- `examples/`: リリース ZIP に同梱する手元実行用スケッチ（例: `tls=openssl` ボードメニューを各 OS で検証する `TLSProbe`）。
+- `libraries/Host/examples/`: リリース ZIP に同梱する手元実行用スケッチ（例: `tls=openssl` ボードメニューを各 OS で検証する `TLSProbe`）。
 - `package_index.json`: Boards Manager 用 index。リリース workflow で更新されます。
 
 ## 事前準備
@@ -552,7 +553,7 @@ python3 scripts/build_package.py --version 0.1.0 --repo tanakamasayuki/host-ardu
 リリース手順:
 
 1. `CHANGELOG.md` を更新します。変更内容を `## Unreleased` に追記します。
-2. `python3 scripts/bump_version.py 0.1.0` で `platform.txt` のバージョンを更新します。
+2. `python3 scripts/bump_version.py 0.1.0` で `platform.txt` と example `sketch.yaml` のバージョンを更新します。
 3. 変更を `main` にコミットします。
 4. `v0.1.0` のようなタグを push するか、GitHub Actions から `Build and Release Host Arduino Core` を手動実行します。
 5. workflow が `## Unreleased` の内容を `## <version>` へ移動し、ZIP を作成し、`package_index.json` を更新し、`package/` を `gh-pages` に公開し、GitHub Release に ZIP と index を添付します。
