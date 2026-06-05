@@ -213,6 +213,20 @@ TCP-disconnect shutdown. The sketch enters `setup()` / `loop()` immediately,
 `Serial` output is written to stdout, and the process exits when the SDL2
 window is closed, the sketch exits, or the user terminates the process.
 
+For LovyanGFX sketches that need an explicit display size, select a target
+from the `Display Board` menu. The menu defines both `M5GFX_BOARD` and the
+generic `HOST_DISPLAY_WIDTH` / `HOST_DISPLAY_HEIGHT` values, so LovyanGFX can
+use the same board choice.
+
+```bash
+arduino-cli upload -p NONE \
+  --fqbn 'lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0' \
+  examples/HostDisplayLovyanGFX
+```
+
+This starts the example as `M5Stack (320x240)` at 2x scale and rotation 0.
+For M5Unified, use `examples/HostDisplayM5Unified` with the same FQBN.
+
 M5Unified `M5_LOGE()` / `M5_LOGW()` / `M5_LOGI()` / `M5_LOGD()` /
 `M5_LOGV()` expand to `M5.Log`, not ESP32 `ESP_LOG*`. In PC / SDL2 builds,
 M5Unified prints those logs to stdout, so manual checks keep the SDL2 window
@@ -224,6 +238,7 @@ and log console separate.
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
+- `scripts/bump_version.py`: updates the `version=` entry in `platform.txt`.
 - `scripts/build_package.py`: creates `package/host-arduino-core/`, produces the ZIP, computes SHA-256, and updates `package_index.json`.
 - `scripts/prepare_release.py`: moves `CHANGELOG.md` unreleased entries into the release version section.
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
@@ -536,10 +551,11 @@ This creates:
 Release flow:
 
 1. Update `CHANGELOG.md`: add entries under `## Unreleased`.
-2. Commit changes to `main`.
-3. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
-4. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
-5. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
+2. Run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt`.
+3. Commit changes to `main`.
+4. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
+5. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
+6. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
 
 ## Limitations
 

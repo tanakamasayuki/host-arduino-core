@@ -40,29 +40,29 @@ display.build.extra_flags_tls=
 display.menu.m5gfx_board=disabled
 display.menu.m5gfx_board.disabled=Disabled
 display.menu.m5gfx_board.disabled.build.extra_flags_m5gfx_board=
-display.menu.m5gfx_board.board_M5Stack=board_M5Stack
+display.menu.m5gfx_board.board_M5Stack=M5Stack (320x240)
 display.menu.m5gfx_board.board_M5Stack.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Stack -DHOST_DISPLAY_WIDTH=320 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5StackCore2=board_M5StackCore2
+display.menu.m5gfx_board.board_M5StackCore2=M5Stack Core2 (320x240)
 display.menu.m5gfx_board.board_M5StackCore2.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StackCore2 -DHOST_DISPLAY_WIDTH=320 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5StackCoreS3=board_M5StackCoreS3
+display.menu.m5gfx_board.board_M5StackCoreS3=M5Stack CoreS3 (320x240)
 display.menu.m5gfx_board.board_M5StackCoreS3.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StackCoreS3 -DHOST_DISPLAY_WIDTH=320 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5StackCoreInk=board_M5StackCoreInk
+display.menu.m5gfx_board.board_M5StackCoreInk=M5Stack CoreInk (200x200)
 display.menu.m5gfx_board.board_M5StackCoreInk.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StackCoreInk -DHOST_DISPLAY_WIDTH=200 -DHOST_DISPLAY_HEIGHT=200
-display.menu.m5gfx_board.board_M5StickC=board_M5StickC
+display.menu.m5gfx_board.board_M5StickC=M5StickC (80x160)
 display.menu.m5gfx_board.board_M5StickC.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StickC -DHOST_DISPLAY_WIDTH=80 -DHOST_DISPLAY_HEIGHT=160
-display.menu.m5gfx_board.board_M5StickCPlus=board_M5StickCPlus
+display.menu.m5gfx_board.board_M5StickCPlus=M5StickC Plus (135x240)
 display.menu.m5gfx_board.board_M5StickCPlus.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StickCPlus -DHOST_DISPLAY_WIDTH=135 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5StickCPlus2=board_M5StickCPlus2
+display.menu.m5gfx_board.board_M5StickCPlus2=M5StickC Plus2 (135x240)
 display.menu.m5gfx_board.board_M5StickCPlus2.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5StickCPlus2 -DHOST_DISPLAY_WIDTH=135 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5Dial=board_M5Dial
+display.menu.m5gfx_board.board_M5Dial=M5Dial (240x240)
 display.menu.m5gfx_board.board_M5Dial.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Dial -DHOST_DISPLAY_WIDTH=240 -DHOST_DISPLAY_HEIGHT=240
-display.menu.m5gfx_board.board_M5Tab5=board_M5Tab5
+display.menu.m5gfx_board.board_M5Tab5=M5Tab5 (1280x720)
 display.menu.m5gfx_board.board_M5Tab5.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Tab5 -DHOST_DISPLAY_WIDTH=1280 -DHOST_DISPLAY_HEIGHT=720
-display.menu.m5gfx_board.board_M5Cardputer=board_M5Cardputer
+display.menu.m5gfx_board.board_M5Cardputer=M5Cardputer (240x135)
 display.menu.m5gfx_board.board_M5Cardputer.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Cardputer -DHOST_DISPLAY_WIDTH=240 -DHOST_DISPLAY_HEIGHT=135
-display.menu.m5gfx_board.board_M5AtomS3=board_M5AtomS3
+display.menu.m5gfx_board.board_M5AtomS3=M5AtomS3 (128x128)
 display.menu.m5gfx_board.board_M5AtomS3.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5AtomS3 -DHOST_DISPLAY_WIDTH=128 -DHOST_DISPLAY_HEIGHT=128
-display.menu.m5gfx_board.board_M5Paper=board_M5Paper
+display.menu.m5gfx_board.board_M5Paper=M5Paper (540x960)
 display.menu.m5gfx_board.board_M5Paper.build.extra_flags_m5gfx_board=-DM5GFX_SHOW_FRAME -DM5GFX_BACK_COLOR=0x222222u -DM5GFX_BOARD=board_M5Paper -DHOST_DISPLAY_WIDTH=540 -DHOST_DISPLAY_HEIGHT=960
 
 display.menu.m5gfx_scale=disabled
