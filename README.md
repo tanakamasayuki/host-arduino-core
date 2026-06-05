@@ -10,7 +10,7 @@ This is not a practical Arduino-compatible board. It is a test target for pure s
 
 ## Highlights
 
-- Architecture `host`, FQBN `lang-ship:host:host`.
+- Architecture `host`, automated-test FQBN `lang-ship:host:host`.
 - Core files live in `cores/host` and provide a small `Arduino.h`, timing helpers, `Serial`, and a weak Arduino-style `main()`.
 - `arduino-cli compile` builds a regular executable using the host-provided `gcc` / `g++` compatible toolchain.
 - `arduino-cli upload` starts the executable in the background instead of flashing hardware.
@@ -123,6 +123,7 @@ care about pin state should mock at the sketch layer.
 | API | Status | Notes |
 |-----|--------|-------|
 | M5GFX / LovyanGFX headless backend | ✅ | enabled by selecting `mode=lgfx` on the FQBN (e.g. `lang-ship:host:host:mode=lgfx`). Sets `SDL_VIDEODRIVER=dummy` in `main()`, wires `Panel_sdl::main` to drive ordinary `setup()`/`loop()` from a worker thread, and leaves `ARDUINO` undefined so M5GFX/LovyanGFX picks its SDL backend in `device.hpp`. Sketches can `Serial.print()` over the TCP runtime as usual and call `gfx.createPng()` to capture a frame for assertion (see `tests/graphics/lgfx_smoke`). Linking pulls `-lSDL2` automatically; on Linux install `libsdl2-dev`. Requires either the M5GFX or LovyanGFX library to be in scope (the core forward-declares `lgfx::v1::Panel_sdl::main` and resolves it at final link) |
+| SDL2 manual display board | ✅ | enabled by selecting `lang-ship:host:display`. `upload` opens a foreground SDL2 window for manual checks. It shares `cores/host` with the `Host` board, so the Core API surface stays identical. Per-device board IDs such as M5Stack / Core2 / CoreS3 are not added; choose device, scale, and rotation through the `display` board menus or example `sketch.yaml` profiles. It does not use the TCP runtime; `Serial` and M5Unified `M5_LOG*` output go to stdout |
 | TFT_eSPI | 🔲 | no plan yet |
 
 ### What "Planned" actually means
@@ -169,9 +170,10 @@ cleanly on both targets.
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
 square in the matrix goes green.
 
-## Board
+## Boards
 
-The initial package provides a single board:
+The standard boards are `Host` for automated tests and `Host Display` for
+manual SDL2 display checks.
 
 ```text
 lang-ship:host:host
@@ -183,7 +185,38 @@ lang-ship:host:host
 - Board name: `Host`
 - Core directory: `cores/host`
 
-No board menus are defined in the initial version. SDL2 and graphical host targets are intentionally out of scope for now.
+`Host` is the CI / pytest / headless board. `upload` starts the executable in
+the background, and `Serial` is controlled by the test side through the TCP
+runtime. If no TCP client connects within the timeout, or if the established
+TCP connection is closed, the process exits so failed or interrupted tests do
+not leave stale child processes behind.
+
+For automated graphics tests, use the existing `mode=lgfx` menu:
+
+```text
+lang-ship:host:host:mode=lgfx
+```
+
+This mode uses SDL2's dummy video driver and is intended for PNG capture and
+assertions from tests.
+
+For manual display checks, use `Host Display`:
+
+```text
+lang-ship:host:display
+```
+
+`Host Display` uses the same `cores/host` implementation as `Host`, but opens
+an SDL2 window on `upload`. It does not use the TCP runtime: there is no TCP
+connection wait, no post-connect settle delay, no connection-info file, and no
+TCP-disconnect shutdown. The sketch enters `setup()` / `loop()` immediately,
+`Serial` output is written to stdout, and the process exits when the SDL2
+window is closed, the sketch exits, or the user terminates the process.
+
+M5Unified `M5_LOGE()` / `M5_LOGW()` / `M5_LOGI()` / `M5_LOGD()` /
+`M5_LOGV()` expand to `M5.Log`, not ESP32 `ESP_LOG*`. In PC / SDL2 builds,
+M5Unified prints those logs to stdout, so manual checks keep the SDL2 window
+and log console separate.
 
 ## Repository Layout
 

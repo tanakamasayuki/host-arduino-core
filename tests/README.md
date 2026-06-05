@@ -193,25 +193,29 @@ treats the missing profile as a profile mismatch).
 
 ## How the local-version trick works
 
-`sketch.yaml` pins the platform **without a version number and without a
-`platform_index_url`**:
+Host profiles in `sketch.yaml` intentionally do **not** declare a
+`platforms:` block:
+
+```yaml
+profiles:
+  host:
+    fqbn: lang-ship:host:host
+    port: socket://localhost
+```
+
+The session fixture in `tests/conftest.py` registers this working tree as
+`<sketchbook>/hardware/lang-ship/host` before tests run. With the FQBN alone,
+arduino-cli resolves `lang-ship:host` through that local hardware entry and
+does not try to install or update a released package. Edit the core, re-run
+pytest, done. No release needed.
+
+To verify a *released* version instead, add a `platforms:` block with the
+version and index URL:
 
 ```yaml
 platforms:
-  - platform: lang-ship:host
-```
-
-With no version pin, arduino-cli reuses whatever `lang-ship:host` is already
-installed — including the sketchbook `hardware/lang-ship/host` symlink — so
-the build runs against the local source tree. Edit the core, re-run pytest,
-done. No release needed.
-
-To verify a *released* version instead, add the version and index URL back,
-e.g.:
-
-```yaml
-- platform: lang-ship:host (1.0.5)
-  platform_index_url: https://tanakamasayuki.github.io/host-arduino-core/package_index.json
+  - platform: lang-ship:host (1.0.5)
+    platform_index_url: https://tanakamasayuki.github.io/host-arduino-core/package_index.json
 ```
 
 The `esp32` profile is the opposite — it pins the version + index URL

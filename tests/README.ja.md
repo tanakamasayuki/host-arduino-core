@@ -178,26 +178,29 @@ profile-mismatch を skip 扱いにします）。
 
 ## ローカル版を使う仕組み
 
-`sketch.yaml` ではプラットフォームを **バージョン番号なし・
-`platform_index_url` なし** で指定しています：
+host profile の `sketch.yaml` では、意図的に `platforms:` ブロックを
+書きません：
+
+```yaml
+profiles:
+  host:
+    fqbn: lang-ship:host:host
+    port: socket://localhost
+```
+
+`tests/conftest.py` の session fixture が、テスト開始前にこの working tree
+を `<sketchbook>/hardware/lang-ship/host` として登録します。FQBN だけなら、
+arduino-cli はそのローカル hardware entry から `lang-ship:host` を解決し、
+公開済みパッケージをインストール・更新しに行きません。コアを編集して
+`pytest` を再実行すれば反映されます。リリース不要です。
+
+逆に *リリース済み* のバージョンを検証したい場合は、`platforms:` ブロッ
+クにバージョンと index URL を書きます：
 
 ```yaml
 platforms:
-  - platform: lang-ship:host
-```
-
-バージョン pin が無いと、arduino-cli はすでにインストール済みの
-`lang-ship:host` をそのまま使います。sketchbook の
-`hardware/lang-ship/host` symlink もこの対象になるため、ビルドはローカル
-ソースツリーに対して実行されます。コアを編集して `pytest` を再実行すれば
-反映されます。リリース不要です。
-
-逆に *リリース済み* のバージョンを検証したい場合は、バージョンと index
-URL を戻します：
-
-```yaml
-- platform: lang-ship:host (1.0.5)
-  platform_index_url: https://tanakamasayuki.github.io/host-arduino-core/package_index.json
+  - platform: lang-ship:host (1.0.5)
+    platform_index_url: https://tanakamasayuki.github.io/host-arduino-core/package_index.json
 ```
 
 `esp32` プロファイルは逆で、Boards Manager 経由でインストールされる
