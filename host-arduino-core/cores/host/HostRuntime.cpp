@@ -10,6 +10,7 @@
 #include <iostream>
 #include <mutex>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #ifdef _WIN32
@@ -39,6 +40,12 @@ static const host_socket_t invalid_socket_value = -1;
 #endif
 
 SerialClass Serial;
+
+#if defined(__GNUC__) || defined(__clang__)
+#define HOST_ARDUINO_UNUSED __attribute__((unused))
+#else
+#define HOST_ARDUINO_UNUSED
+#endif
 
 namespace
 {
@@ -84,7 +91,7 @@ namespace
         return end && *end == '\0' ? parsed : fallback;
     }
 
-    size_t envSize(const char *name, size_t fallback)
+    HOST_ARDUINO_UNUSED size_t envSize(const char *name, size_t fallback)
     {
         return static_cast<size_t>(envUnsignedLong(name, static_cast<unsigned long>(fallback)));
     }
@@ -274,7 +281,7 @@ namespace
         }
     }
 
-    bool hasChildArg(int argc, char **argv)
+    HOST_ARDUINO_UNUSED bool hasChildArg(int argc, char **argv)
     {
         for (int i = 1; i < argc; ++i)
         {
@@ -402,7 +409,7 @@ namespace
         logLine(LOG_INFO, "info_file_written", oss.str());
     }
 
-    void appendOutputLocked(const char *data, size_t len)
+    HOST_ARDUINO_UNUSED void appendOutputLocked(const char *data, size_t len)
     {
         if (g_output_limit == 0)
         {
@@ -564,7 +571,7 @@ namespace
         g_stop = true;
     }
 
-    bool startServer()
+    HOST_ARDUINO_UNUSED bool startServer()
     {
 #ifdef _WIN32
         WSADATA wsa;
@@ -636,7 +643,7 @@ namespace
         return true;
     }
 
-    bool waitForClient()
+    HOST_ARDUINO_UNUSED bool waitForClient()
     {
         const unsigned long timeout_ms = envUnsignedLong("HOST_ARDUINO_CONNECT_TIMEOUT_MS", kDefaultConnectTimeoutMs);
         {
@@ -673,7 +680,7 @@ namespace
         return true;
     }
 
-    int runLauncher(int argc, char **argv)
+    HOST_ARDUINO_UNUSED int runLauncher(int argc, char **argv)
     {
         (void)argc;
         (void)argv;
@@ -733,6 +740,12 @@ namespace HostArduino
 
     bool runtimeStart(int argc, char **argv)
     {
+#ifdef HOST_ARDUINO_DISPLAY
+        (void)argc;
+        (void)argv;
+        g_stop = false;
+        return true;
+#else
         if (!hasChildArg(argc, argv))
         {
             std::exit(runLauncher(argc, argv));
@@ -756,10 +769,14 @@ namespace HostArduino
             return false;
         }
         return true;
+#endif
     }
 
     void runtimeStop()
     {
+#ifdef HOST_ARDUINO_DISPLAY
+        g_stop = true;
+#else
         g_stop = true;
         if (g_server_thread.joinable())
         {
@@ -774,6 +791,7 @@ namespace HostArduino
             reason = g_exit_reason;
         }
         logLine(LOG_INFO, "runtime_stop", "reason=" + reason);
+#endif
     }
 
     bool runtimeShouldStop()
@@ -797,6 +815,11 @@ namespace HostArduino
         {
             return 0;
         }
+#ifdef HOST_ARDUINO_DISPLAY
+        std::fwrite(data, 1, len, stdout);
+        std::fflush(stdout);
+        return len;
+#else
         std::lock_guard<std::mutex> lock(g_serial_mutex);
         appendOutputLocked(data, len);
         sendToClient(data, len);
@@ -804,16 +827,24 @@ namespace HostArduino
         oss << "bytes=" << len;
         logLine(LOG_DEBUG, "serial_tx", oss.str());
         return len;
+#endif
     }
 
     int serialAvailable()
     {
+#ifdef HOST_ARDUINO_DISPLAY
+        return 0;
+#else
         std::lock_guard<std::mutex> lock(g_serial_mutex);
         return static_cast<int>(g_input_buffer.size());
+#endif
     }
 
     int serialRead()
     {
+#ifdef HOST_ARDUINO_DISPLAY
+        return -1;
+#else
         std::lock_guard<std::mutex> lock(g_serial_mutex);
         if (g_input_buffer.empty())
         {
@@ -822,10 +853,14 @@ namespace HostArduino
         const unsigned char ch = static_cast<unsigned char>(g_input_buffer[0]);
         g_input_buffer.erase(0, 1);
         return static_cast<int>(ch);
+#endif
     }
 
     int serialPeek()
     {
+#ifdef HOST_ARDUINO_DISPLAY
+        return -1;
+#else
         std::lock_guard<std::mutex> lock(g_serial_mutex);
         if (g_input_buffer.empty())
         {
@@ -833,6 +868,7 @@ namespace HostArduino
         }
         const unsigned char ch = static_cast<unsigned char>(g_input_buffer[0]);
         return static_cast<int>(ch);
+#endif
     }
 
 } // namespace HostArduino

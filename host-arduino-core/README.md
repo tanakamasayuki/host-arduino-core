@@ -10,7 +10,7 @@ This is not a practical Arduino-compatible board. It is a test target for pure s
 
 ## Highlights
 
-- Architecture `host`, FQBN `lang-ship:host:host`.
+- Architecture `host`, automated-test FQBN `lang-ship:host:host`.
 - Core files live in `cores/host` and provide a small `Arduino.h`, timing helpers, `Serial`, and a weak Arduino-style `main()`.
 - `arduino-cli compile` builds a regular executable using the host-provided `gcc` / `g++` compatible toolchain.
 - `arduino-cli upload` starts the executable in the background instead of flashing hardware.
@@ -123,6 +123,7 @@ care about pin state should mock at the sketch layer.
 | API | Status | Notes |
 |-----|--------|-------|
 | M5GFX / LovyanGFX headless backend | ✅ | enabled by selecting `mode=lgfx` on the FQBN (e.g. `lang-ship:host:host:mode=lgfx`). Sets `SDL_VIDEODRIVER=dummy` in `main()`, wires `Panel_sdl::main` to drive ordinary `setup()`/`loop()` from a worker thread, and leaves `ARDUINO` undefined so M5GFX/LovyanGFX picks its SDL backend in `device.hpp`. Sketches can `Serial.print()` over the TCP runtime as usual and call `gfx.createPng()` to capture a frame for assertion (see `tests/graphics/lgfx_smoke`). Linking pulls `-lSDL2` automatically; on Linux install `libsdl2-dev`. Requires either the M5GFX or LovyanGFX library to be in scope (the core forward-declares `lgfx::v1::Panel_sdl::main` and resolves it at final link) |
+| SDL2 manual display board | ✅ | enabled by selecting `lang-ship:host:display`. `upload` opens a foreground SDL2 window for manual checks. It shares `cores/host` with the `Host` board, so the Core API surface stays identical. Per-device board IDs such as M5Stack / Core2 / CoreS3 are not added; choose device, scale, and rotation through the `display` board menus or example `sketch.yaml` profiles. It does not use the TCP runtime; `Serial` and M5Unified `M5_LOG*` output go to stdout |
 | TFT_eSPI | 🔲 | no plan yet |
 
 ### What "Planned" actually means
@@ -169,9 +170,10 @@ cleanly on both targets.
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
 square in the matrix goes green.
 
-## Board
+## Boards
 
-The initial package provides a single board:
+The standard boards are `Host` for automated tests and `Host Display` for
+manual SDL2 display checks.
 
 ```text
 lang-ship:host:host
@@ -183,7 +185,53 @@ lang-ship:host:host
 - Board name: `Host`
 - Core directory: `cores/host`
 
-No board menus are defined in the initial version. SDL2 and graphical host targets are intentionally out of scope for now.
+`Host` is the CI / pytest / headless board. `upload` starts the executable in
+the background, and `Serial` is controlled by the test side through the TCP
+runtime. If no TCP client connects within the timeout, or if the established
+TCP connection is closed, the process exits so failed or interrupted tests do
+not leave stale child processes behind.
+
+For automated graphics tests, use the existing `mode=lgfx` menu:
+
+```text
+lang-ship:host:host:mode=lgfx
+```
+
+This mode uses SDL2's dummy video driver and is intended for PNG capture and
+assertions from tests.
+
+For manual display checks, use `Host Display`:
+
+```text
+lang-ship:host:display
+```
+
+`Host Display` uses the same `cores/host` implementation as `Host`, but opens
+an SDL2 window on `upload`. It does not use the TCP runtime: there is no TCP
+connection wait, no post-connect settle delay, no connection-info file, and no
+TCP-disconnect shutdown. The sketch enters `setup()` / `loop()` immediately,
+`Serial` output is written to stdout, and the process exits when the SDL2
+window is closed, the sketch exits, or the user terminates the process.
+
+For LovyanGFX sketches that need an explicit display size, select a target
+from the `Display Board` menu. The menu defines both `M5GFX_BOARD` and the
+generic `HOST_DISPLAY_WIDTH` / `HOST_DISPLAY_HEIGHT` values, so LovyanGFX can
+use the same board choice.
+
+```bash
+arduino-cli upload -p NONE \
+  --fqbn 'lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0' \
+  libraries/Host/examples/SDL2/HostDisplayLovyanGFX
+```
+
+This starts the example as `M5Stack (320x240)` at 2x scale and rotation 0.
+For M5Unified, use `libraries/Host/examples/SDL2/HostDisplayM5Unified` with
+the same FQBN.
+
+M5Unified `M5_LOGE()` / `M5_LOGW()` / `M5_LOGI()` / `M5_LOGD()` /
+`M5_LOGV()` expand to `M5.Log`, not ESP32 `ESP_LOG*`. In PC / SDL2 builds,
+M5Unified prints those logs to stdout, so manual checks keep the SDL2 window
+and log console separate.
 
 ## Repository Layout
 
@@ -191,12 +239,13 @@ No board menus are defined in the initial version. SDL2 and graphical host targe
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
+- `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.
 - `scripts/build_package.py`: creates `package/host-arduino-core/`, produces the ZIP, computes SHA-256, and updates `package_index.json`.
 - `scripts/prepare_release.py`: moves `CHANGELOG.md` unreleased entries into the release version section.
 - `.github/workflows/release.yml`: builds/releases the package on tag push or manual dispatch, publishes `package/` to `gh-pages`, and attaches assets to GitHub Releases.
 - `CHANGELOG.md`: release notes in English and Japanese. The release workflow uses the matching version section as the GitHub Release body.
 - `docs/requirements.ja.md`: requirements document.
-- `examples/`: ready-to-open sketches shipped in the release ZIP (e.g. `TLSProbe` for verifying the `tls=openssl` board menu option on each OS).
+- `libraries/Host/examples/`: ready-to-open sketches shipped in the release ZIP (e.g. `TLSProbe` for verifying the `tls=openssl` board menu option on each OS).
 - `package_index.json`: checked-in Boards Manager index, updated by the release workflow.
 
 ## Prerequisites
@@ -503,10 +552,11 @@ This creates:
 Release flow:
 
 1. Update `CHANGELOG.md`: add entries under `## Unreleased`.
-2. Commit changes to `main`.
-3. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
-4. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
-5. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
+2. Run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt` and the example `sketch.yaml` versions.
+3. Commit changes to `main`.
+4. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
+5. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
+6. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
 
 ## Limitations
 

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.4.0
+- (EN) Added the `Host Display` board (`lang-ship:host:display`) for manual SDL2 display checks. It shares `cores/host` with the `Host` board, opens a foreground SDL2 window on upload, writes `Serial` / M5Unified `M5_LOG*` output to stdout, and deliberately skips the TCP runtime so there is no connection wait, settle delay, connection-info file, or TCP-disconnect shutdown path.
+- (JA) 手動 SDL2 表示確認用の `Host Display` ボード（`lang-ship:host:display`）を追加。`Host` ボードと同じ `cores/host` を共有し、upload で前面 SDL2 ウィンドウを開く。`Serial` と M5Unified の `M5_LOG*` は標準出力へ流し、TCP runtime は使わないため、接続待ち、settle 待ち、接続情報ファイル、TCP 切断による終了経路は持たない。
+- (EN) Added display board menus for target device, scale, and rotation. The visible menu labels are generic (`Display Board`, `Display Scale`, `Display Rotation`), while the FQBN keys remain compatible with the existing M5GFX-style names (`m5gfx_board`, `m5gfx_scale`, `m5gfx_rotation`). Board choices now define both `M5GFX_BOARD` and generic `HOST_DISPLAY_WIDTH` / `HOST_DISPLAY_HEIGHT`; scale and rotation also define `HOST_DISPLAY_SCALE` / `HOST_DISPLAY_ROTATION` so LovyanGFX sketches can use the same menu selection.
+- (JA) display ボードに対象デバイス、倍率、回転のメニューを追加。表示名は汎用的な `Display Board` / `Display Scale` / `Display Rotation` としつつ、FQBN のキーは既存の M5GFX 系指定と互換の `m5gfx_board` / `m5gfx_scale` / `m5gfx_rotation` を維持。ボード選択では `M5GFX_BOARD` に加えて汎用の `HOST_DISPLAY_WIDTH` / `HOST_DISPLAY_HEIGHT` も定義し、倍率・回転では `HOST_DISPLAY_SCALE` / `HOST_DISPLAY_ROTATION` も定義するため、LovyanGFX スケッチからも同じメニュー選択を参照できる。
+- (EN) Moved user-facing examples into the Arduino-library example layout used by `native-arduino-core`: `libraries/Host/examples/Plane/{FSSmoke,TLSProbe}` and `libraries/Host/examples/SDL2/{HostDisplayLovyanGFX,HostDisplayM5Unified}`. Added the minimal `libraries/Host` metadata so these sketches are shipped with the package and appear as library examples.
+- (JA) ユーザー向け example を `native-arduino-core` と同じ Arduino ライブラリ example 構造へ移動。配置は `libraries/Host/examples/Plane/{FSSmoke,TLSProbe}` と `libraries/Host/examples/SDL2/{HostDisplayLovyanGFX,HostDisplayM5Unified}`。最小限の `libraries/Host` メタデータも追加し、パッケージ同梱およびライブラリ example として扱えるようにした。
+- (EN) Added `scripts/bump_version.py` to update both `platform.txt` and the pinned host platform versions in `libraries/Host/examples/*/*/sketch.yaml`. The bundled example `sketch.yaml` files now point at the `host-arduino-core` package index URL.
+- (JA) `scripts/bump_version.py` を追加し、`platform.txt` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョン pin をまとめて更新できるようにした。同梱 example の `sketch.yaml` は `host-arduino-core` の package index URL を参照する。
+
 ## 1.3.1
 - (EN) Added `recipe.preproc.macros` to `platform.txt` so Arduino CLI 1.5.0 can preprocess the new `.ino.cpp.merged` sketch intermediate as C++ (`-x c++ -E -CC`). This fixes Windows build failures exposed by Arduino CLI 1.5.0's sketch build-cache path while remaining compatible with Arduino CLI 1.4.0. CI now pins `arduino-cli` to 1.5.0 so the `.merged` route is covered on Linux / Windows / macOS.
 - (JA) `platform.txt` に `recipe.preproc.macros` を追加し、Arduino CLI 1.5.0 が生成する `.ino.cpp.merged` 中間ファイルを C++ として前処理するようにした（`-x c++ -E -CC`）。Arduino CLI 1.5.0 の sketch build-cache 経路で露出した Windows ビルド失敗を修正しつつ、Arduino CLI 1.4.0 との互換性は維持。CI は `arduino-cli` を 1.5.0 に pin し、Linux / Windows / macOS で `.merged` 経路をカバーする。
