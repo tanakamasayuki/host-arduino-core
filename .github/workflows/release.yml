@@ -37,6 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           VER=${{ steps.ver.outputs.version }}
+          python3 scripts/bump_version.py "$VER"
           python3 scripts/prepare_release.py --version "$VER"
 
       - name: Build package and update index
@@ -87,7 +88,7 @@ jobs:
           git config user.email "actions@github.com"
           git config user.name "github-actions"
           git fetch origin main:refs/remotes/origin/main || true
-          git add CHANGELOG.md package_index.json
+          git add CHANGELOG.md package_index.json platform.txt libraries/Host/examples
           if git diff --staged --quiet; then
             echo "No release changes to commit"
           else

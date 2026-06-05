@@ -552,10 +552,10 @@ This creates:
 Release flow:
 
 1. Update `CHANGELOG.md`: add entries under `## Unreleased`.
-2. Run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt` and the example `sketch.yaml` versions.
+2. To inspect the release diff locally, run `python3 scripts/bump_version.py 0.1.0` to update `platform.txt` and the example `sketch.yaml` versions. The release workflow runs the same step.
 3. Commit changes to `main`.
 4. Push a tag such as `v0.1.0`, or run `Build and Release Host Arduino Core` manually from GitHub Actions.
-5. The workflow moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
+5. The workflow updates `platform.txt` and the example `sketch.yaml` versions, moves the `## Unreleased` entries into `## <version>`, builds the ZIP, updates `package_index.json`, publishes `package/` to `gh-pages`, and attaches the ZIP plus index to the GitHub Release.
 6. The GitHub Release body is populated from the matching `CHANGELOG.md` section, for example `## 0.1.0`.
 
 ## Limitations

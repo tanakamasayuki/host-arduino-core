@@ -553,10 +553,10 @@ python3 scripts/build_package.py --version 0.1.0 --repo tanakamasayuki/host-ardu
 リリース手順:
 
 1. `CHANGELOG.md` を更新します。変更内容を `## Unreleased` に追記します。
-2. `python3 scripts/bump_version.py 0.1.0` で `platform.txt` と example `sketch.yaml` のバージョンを更新します。
+2. ローカルでリリース前の差分を確認したい場合は、`python3 scripts/bump_version.py 0.1.0` で `platform.txt` と example `sketch.yaml` のバージョンを更新します。release workflow も同じ処理を実行します。
 3. 変更を `main` にコミットします。
 4. `v0.1.0` のようなタグを push するか、GitHub Actions から `Build and Release Host Arduino Core` を手動実行します。
-5. workflow が `## Unreleased` の内容を `## <version>` へ移動し、ZIP を作成し、`package_index.json` を更新し、`package/` を `gh-pages` に公開し、GitHub Release に ZIP と index を添付します。
+5. workflow が `platform.txt` と example `sketch.yaml` のバージョンを更新し、`## Unreleased` の内容を `## <version>` へ移動し、ZIP を作成し、`package_index.json` を更新し、`package/` を `gh-pages` に公開し、GitHub Release に ZIP と index を添付します。
 6. GitHub Release の本文には、`## 0.1.0` のような `CHANGELOG.md` の対象バージョン節が入ります。
 
 ## 制限事項
