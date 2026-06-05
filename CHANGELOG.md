@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.4.1
 - (EN) Fixed the release workflow so `scripts/bump_version.py` runs during release preparation and the resulting `platform.txt` / bundled example `sketch.yaml` version updates are committed back to `main`. The bundled examples now pin `lang-ship:host (1.4.0)` while keeping the existing merged package index URL.
 - (JA) release workflow を修正し、リリース準備時に `scripts/bump_version.py` を実行して、更新された `platform.txt` と同梱 example `sketch.yaml` のバージョンを `main` へコミットするようにした。同梱 example は既存の merged package index URL を維持したまま `lang-ship:host (1.4.0)` を pin する。
 
