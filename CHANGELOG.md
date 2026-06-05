@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Made `tests/runtime/esp_timer` less timing-fragile on busy macOS runners by waiting up to 2 seconds for the periodic callback to fire four times instead of assuming a fixed 500 ms window is always enough for the timer thread to start and run.
+- (JA) 混雑した macOS runner で `tests/runtime/esp_timer` がタイミング依存で失敗しないよう、固定 500 ms の待ち時間に依存せず、periodic callback が 4 回発火するまで最大 2 秒待つ形に変更した。
 
 ## 1.4.1
 - (EN) Fixed the release workflow so `scripts/bump_version.py` runs during release preparation and the resulting `platform.txt` / bundled example `sketch.yaml` version updates are committed back to `main`. The bundled examples now pin `lang-ship:host (1.4.0)` while keeping the existing merged package index URL.

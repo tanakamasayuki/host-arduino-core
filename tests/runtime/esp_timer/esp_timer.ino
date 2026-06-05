@@ -38,7 +38,10 @@ void setup() {
     Serial.println(rc == ESP_OK ? "ok" : "fail");
 
     esp_timer_start_periodic(h, 20000); // 20ms
-    delay(500);
+    const int64_t wait_start = esp_timer_get_time();
+    while (g_ticks.load() < 4 && (esp_timer_get_time() - wait_start) < 2000000) {
+        delay(10);
+    }
     esp_timer_stop(h);
     const int fired = g_ticks.load();
     Serial.print("fired=");
