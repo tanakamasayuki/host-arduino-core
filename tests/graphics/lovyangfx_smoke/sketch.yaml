@@ -3,7 +3,8 @@ profiles:
     fqbn: lang-ship:host:host:mode=lgfx
     port: socket://localhost
     platforms:
-      - platform: lang-ship:host
+      - platform: lang-ship:host (1.3.1)
+        platform_index_url: https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
     libraries:
       - LovyanGFX (1.2.21)
       - dir: ../../common_libs/gfx_demo
