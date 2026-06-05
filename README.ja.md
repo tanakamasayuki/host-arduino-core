@@ -10,7 +10,7 @@ Arduino スケッチをホスト PC 上の実行ファイルとしてビルド�
 
 ## ハイライト
 
-- アーキテクチャは `host`、FQBN は `lang-ship:host:host`。
+- アーキテクチャは `host`、自動テスト用 FQBN は `lang-ship:host:host`。
 - `cores/host` に最小限の `Arduino.h`、時刻 API、`Serial`、weak な Arduino スタイル `main()` を同梱。
 - `arduino-cli compile` は、ホストにある `gcc` / `g++` 互換ツールチェーンで通常の実行ファイルを生成します。
 - `arduino-cli upload` は、実機への書き込みではなく、生成した実行ファイルをバックグラウンドで起動します。
@@ -124,6 +124,7 @@ ESP32 拡張かを示します。
 | API | 状況 | 備考 |
 |-----|------|------|
 | M5GFX / LovyanGFX ヘッドレスバックエンド | ✅ | FQBN に `mode=lgfx` を指定（例: `lang-ship:host:host:mode=lgfx`）すると有効。`main()` で `SDL_VIDEODRIVER=dummy` を立てて `Panel_sdl::main` に普通の `setup()`/`loop()` をワーカースレッドから駆動させる構造。`ARDUINO` は未定義のままなので M5GFX/LovyanGFX が `device.hpp` で SDL バックエンドを選ぶ。スケッチは通常通り `Serial.print()` を TCP runtime に流せ、`gfx.createPng()` でフレームを PNG として保存して assert 可能（`tests/graphics/lgfx_smoke` 参照）。リンクは `-lSDL2` 自動付加。Linux は `libsdl2-dev` を導入。M5GFX もしくは LovyanGFX ライブラリがスケッチに含まれている必要あり（コア側は `lgfx::v1::Panel_sdl::main` を forward-declare してリンク時に解決） |
+| SDL2 手動表示ボード | ✅ | `lang-ship:host:display` で有効。`upload` で SDL2 画面を開いて手動確認できる。Core は `host` と同じ `cores/host` を使い、API 対応差を作らない。M5Stack / Core2 / CoreS3 などの個別ボード ID は増やさず、`display` ボードのメニューと `sketch.yaml` の profile で対象デバイス、倍率、回転を選択する。TCP runtime は使わず、`Serial` と M5Unified の `M5_LOG*` は標準出力へ出る |
 | TFT_eSPI | 🔲 | 計画なし |
 
 ### 「Planned」の意味
@@ -170,7 +171,7 @@ uv run --env-file .env pytest --profile esp32 interop/
 
 ## ボード
 
-初期版で提供するボードは 1 つだけです。
+標準ボードは自動テスト用の `Host` と、手動表示確認用の `Host Display` です。
 
 ```text
 lang-ship:host:host
@@ -182,7 +183,44 @@ lang-ship:host:host
 - ボード名: `Host`
 - Core ディレクトリ: `cores/host`
 
-初期版ではボードメニューは定義していません。SDL2 やグラフィカルなホストターゲットは、現時点では対象外です。
+`Host` は CI / pytest / headless 実行を安定させるためのボードです。`upload`
+は実行ファイルをバックグラウンドで起動し、`Serial` は TCP runtime 経由で
+テスト側から制御します。TCP 接続が一定時間確立されない場合や、一度確立し
+た TCP 接続が切断された場合は、テスト実行後にプロセスが残らないよう自動
+終了します。
+
+グラフィックスの自動テスト向けには、既存の `mode=lgfx` メニューを使いま
+す。
+
+```text
+lang-ship:host:host:mode=lgfx
+```
+
+このモードは SDL2 の dummy video driver を使う headless 実行で、PNG キャ
+プチャなどをテストから検証する用途です。
+
+手動表示確認用には `Host Display` ボードを使います。
+
+```text
+lang-ship:host:display
+```
+
+`Host Display` は `Host` と同じ `cores/host` を使い、Core API の対応差を
+作らないまま、`upload` で SDL2 画面を開く手動テスト用ボードです。
+M5Stack / Core2 / CoreS3 などの個別ボード ID は増やさず、
+`display` ボードのメニューと example ごとの `sketch.yaml` profile で対象
+デバイス、倍率、回転を選ぶ構成です。
+
+`Host Display` では TCP runtime を使いません。接続待ち、接続直後の settle
+待ち、接続情報ファイル、TCP 切断による自動終了は `Host` 専用の仕様にし、
+手動表示確認では起動後すぐに `setup()` / `loop()` を開始します。`Serial`
+出力は標準出力へ流し、終了は SDL2 画面を閉じる、スケッチ自身が終了する、
+または利用者がプロセスを終了する操作を基本にします。
+
+M5Unified の `M5_LOGE()` / `M5_LOGW()` / `M5_LOGI()` / `M5_LOGD()` /
+`M5_LOGV()` は ESP32 の `ESP_LOG*` ではなく `M5.Log` に展開されます。PC /
+SDL2 ビルドでは M5Unified が標準出力へ `printf()` するため、手動確認時は
+SDL2 画面とは別にログコンソールへ表示されます。
 
 ## リポジトリ構成
 

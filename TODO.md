@@ -1,8 +1,10 @@
--- Wire.h
-初期化成功で終わらせてデバイスは見えない。
+# TODO
 
--- WiFi.h
-接続までできるようにする。接続成功で終わらせる。
+## Optional Display UX
 
--- M5GFX
-フレームバッファモードで画面を描画して、画面キャプチャーを保存できるようにする。
+- Consider a `console` menu for `lang-ship:host:display` if Windows users need to hide the extra stdout console window.
+
+## Runtime / API
+
+- Wire.h: initialize successfully and expose no visible devices.
+- WiFi.h: keep state-tracking connection stubs; `begin()` should be able to complete as connected.
