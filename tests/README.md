@@ -200,14 +200,14 @@ you want explicitly:
 ```bash
 cd tests
 uv run pytest manual/display_m5unified/display_m5unified.py -q
+uv run pytest manual/display_lovyangfx/display_lovyangfx.py -q
 ```
 
-This builds an M5Unified sketch for `lang-ship:host:display` and runs it with
-`SDL_VIDEODRIVER=dummy` only for the test process. It verifies startup,
-`Serial` output on stdout, and that no TCP connection-info file is created.
-For an actual foreground window check, run `arduino-cli compile --profile
-display` / `arduino-cli upload --profile display` in the same sketch
-directory.
+These tests build M5Unified / LovyanGFX sketches for `lang-ship:host:display`
+and start the SDL2 app through `arduino-cli upload`. The test completes when
+the user closes the window and upload returns. They verify the manual display
+startup path only; they do not use the `dut` fixture because there is no result
+stream to read.
 
 ## How the local-version trick works
 

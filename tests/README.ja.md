@@ -185,14 +185,14 @@ profile-mismatch を skip 扱いにします）。
 ```bash
 cd tests
 uv run pytest manual/display_m5unified/display_m5unified.py -q
+uv run pytest manual/display_lovyangfx/display_lovyangfx.py -q
 ```
 
-このテストは `lang-ship:host:display` で M5Unified スケッチをビルドし、
-テスト中だけ `SDL_VIDEODRIVER=dummy` を付けて実行します。確認するのは
-「起動する」「`Serial` が stdout に出る」「TCP 接続情報ファイルを作らない」
-ところまでです。実際にウィンドウを開いて触る確認は、同じディレクトリで
-`arduino-cli compile --profile display` / `arduino-cli upload --profile display`
-を使って実行します。
+これらのテストは `lang-ship:host:display` で M5Unified / LovyanGFX スケッ
+チをビルドし、`arduino-cli upload` で SDL2 アプリを起動します。ウィンドウ
+を閉じると upload が戻り、テストが完了します。確認するのは display ボー
+ドの手動起動経路です。結果ストリームは見ないため、`dut` fixture は使いま
+せん。
 
 ## ローカル版を使う仕組み
 
