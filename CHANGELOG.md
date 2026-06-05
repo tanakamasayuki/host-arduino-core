@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.4.0
 - (EN) Added the `Host Display` board (`lang-ship:host:display`) for manual SDL2 display checks. It shares `cores/host` with the `Host` board, opens a foreground SDL2 window on upload, writes `Serial` / M5Unified `M5_LOG*` output to stdout, and deliberately skips the TCP runtime so there is no connection wait, settle delay, connection-info file, or TCP-disconnect shutdown path.
 - (JA) 手動 SDL2 表示確認用の `Host Display` ボード（`lang-ship:host:display`）を追加。`Host` ボードと同じ `cores/host` を共有し、upload で前面 SDL2 ウィンドウを開く。`Serial` と M5Unified の `M5_LOG*` は標準出力へ流し、TCP runtime は使わないため、接続待ち、settle 待ち、接続情報ファイル、TCP 切断による終了経路は持たない。
 - (EN) Added display board menus for target device, scale, and rotation. The visible menu labels are generic (`Display Board`, `Display Scale`, `Display Rotation`), while the FQBN keys remain compatible with the existing M5GFX-style names (`m5gfx_board`, `m5gfx_scale`, `m5gfx_rotation`). Board choices now define both `M5GFX_BOARD` and generic `HOST_DISPLAY_WIDTH` / `HOST_DISPLAY_HEIGHT`; scale and rotation also define `HOST_DISPLAY_SCALE` / `HOST_DISPLAY_ROTATION` so LovyanGFX sketches can use the same menu selection.
