@@ -7,6 +7,8 @@
 - (JA) 混雑した macOS runner で `tests/runtime/esp_timer` がタイミング依存で失敗しないよう、固定 500 ms の待ち時間に依存せず、periodic callback が 4 回発火するまで最大 2 秒待つ形に変更した。
 - (EN) Changed the `Host Display` board defaults to a visible M5Stack SDL target (`board_M5Stack`, `x1`, rotation `0`) instead of leaving the display board, scale, and rotation disabled by default.
 - (JA) `Host Display` ボードのデフォルトを、画面なしではなく表示可能な M5Stack SDL ターゲット（`board_M5Stack`、`x1`、回転 `0`）に変更した。
+- (EN) Added a separate `run_display` upload tool for `Host Display`. On Windows it launches the built executable through `cmd /c start`, matching the native core behavior so Arduino IDE upload opens the SDL window instead of only streaming logs through the IDE console. The normal `Host` board keeps the direct `run` tool so TCP test automation still receives stdout.
+- (JA) `Host Display` 専用の `run_display` upload tool を追加。Windows では native core と同じく `cmd /c start` 経由でビルド済み実行ファイルを起動し、Arduino IDE の upload でも SDL ウィンドウが開くようにした。通常の `Host` ボードは直接実行の `run` tool のままにし、TCP 自動テストが stdout を受け取れる挙動を維持する。
 
 ## 1.4.1
 - (EN) Fixed the release workflow so `scripts/bump_version.py` runs during release preparation and the resulting `platform.txt` / bundled example `sketch.yaml` version updates are committed back to `main`. The bundled examples now pin `lang-ship:host (1.4.0)` while keeping the existing merged package index URL.
