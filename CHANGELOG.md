@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.4.5
 - (EN) Added `-I{build.source.path}` to the `platform.txt` compile recipes (`recipe.preproc.macros` / `recipe.c.o.pattern` / `recipe.cpp.o.pattern`), matching ESP32 and other cores. This puts the original sketch directory on the include path so sketches can `#include "local_header.h"` for headers placed alongside the sketch.
 - (JA) `platform.txt` のコンパイルレシピ（`recipe.preproc.macros` / `recipe.c.o.pattern` / `recipe.cpp.o.pattern`）に `-I{build.source.path}` を追加し、ESP32 等の他コアと挙動を揃えた。スケッチのオリジナルディレクトリをインクルードパスに加えるため、スケッチ直下に置いたヘッダを `#include "local_header.h"` で参照できる。
 
