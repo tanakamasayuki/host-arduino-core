@@ -16,25 +16,30 @@ compiler.cxx.flags.windows=-O2 -Wall -ffunction-sections -fdata-sections -IC:/ms
 compiler.ldflags=
 compiler.ldflags.windows=-LC:/msys64/ucrt64/lib
 # Core-controlled defines, accumulated from board-menu options. Kept
-# separate from `build.extra_flags` so that user-side overrides (e.g.
-# arduino-cli's `--build-property build.extra_flags=...`, which is what
-# `build_config.toml` in pytest-embedded-arduino-cli emits to inject
-# things like WIFI_SSID) compose cleanly instead of clobbering our menu
-# selections.
+# separate from the user-side injection points below so that overrides
+# compose cleanly instead of clobbering our menu selections.
 build.core_flags=-DHOST_ARDUINO=1 {build.extra_flags_mode} {build.extra_flags_tls} {build.extra_flags_m5gfx_board} {build.extra_flags_m5gfx_scale} {build.extra_flags_m5gfx_rotation}
+# User-side injection points, left empty and unused by the core:
+#   - `build.defines`: ESP32-style `-D` injection (arduino-esp32 uses this
+#     property to feed extra `-D` build options).
+#   - `build.extra_flags`: the standard arduino-cli override (e.g.
+#     `--build-property build.extra_flags=...`, which is what
+#     `build_config.toml` in pytest-embedded-arduino-cli emits to inject
+#     things like WIFI_SSID).
+build.defines=
 build.extra_flags=
 
-recipe.preproc.macros={compiler.path}{compiler.cpp.cmd} -x c++ -E -CC {compiler.cxx.flags} {build.core_flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} {source_file} -o {preprocessed_file_path}
-recipe.c.o.pattern={compiler.path}{compiler.c.cmd} {compiler.c.flags} {build.core_flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} -c -o {object_file} {source_file}
-recipe.cpp.o.pattern={compiler.path}{compiler.cpp.cmd} {compiler.cxx.flags} {build.core_flags} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} -c -o {object_file} {source_file}
+recipe.preproc.macros={compiler.path}{compiler.cpp.cmd} -x c++ -E -CC {compiler.cxx.flags} {build.core_flags} {build.defines} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} {source_file} -o {preprocessed_file_path}
+recipe.c.o.pattern={compiler.path}{compiler.c.cmd} {compiler.c.flags} {build.core_flags} {build.defines} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} -c -o {object_file} {source_file}
+recipe.cpp.o.pattern={compiler.path}{compiler.cpp.cmd} {compiler.cxx.flags} {build.core_flags} {build.defines} {build.extra_flags} {includes} -I{runtime.platform.path}/cores/{build.core} -I{build.path}/sketch -I{build.source.path} -c -o {object_file} {source_file}
 recipe.ar.pattern={compiler.path}{compiler.ar.cmd} {compiler.ar.flags} {compiler.ar.extra_flags} "{archive_file_path}" "{object_file}"
 
 compiler.c.elf.cmd={compiler.cpp.cmd}
 compiler.c.elf.flags={compiler.cxx.flags}
-recipe.c.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
-recipe.cpp.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
-recipe.c.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
-recipe.cpp.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
+recipe.c.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.defines} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
+recipe.cpp.combine.pattern={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.defines} {build.extra_flags} -pthread -o {build.path}/{build.project_name}.out
+recipe.c.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.defines} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
+recipe.cpp.combine.pattern.windows={compiler.path}{compiler.c.elf.cmd} {compiler.c.elf.flags} {compiler.ldflags} {object_files} {archive_file_path} {build.core_flags} {build.defines} {build.extra_flags} -lws2_32 -o {build.path}/{build.project_name}.out
 
 tools.run.upload.pattern="{build.path}/{build.project_name}.out"
 tools.run.upload.pattern.windows="{build.path}/{build.project_name}.out"

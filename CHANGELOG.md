@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+- (EN) Added the ESP32-style `build.defines` injection point to the `platform.txt` recipes (compile and link), alongside the existing `build.extra_flags`. Both are declared empty and left unused by the core, kept separate from the menu-driven `build.core_flags` so user/tooling-side `-D` overrides compose cleanly instead of clobbering menu selections.
+- (JA) `platform.txt` のレシピ（コンパイル・リンク）に、ESP32 流の `build.defines` 注入ポイントを既存の `build.extra_flags` と並べて追加した。どちらも空で宣言しコア側では未使用のまま、メニュー由来の `build.core_flags` とは分離してあるため、ユーザー/ツール側の `-D` 上書きがメニュー選択を壊さず合成される。
 
 ## 1.4.5
 - (EN) Added `-I{build.source.path}` to the `platform.txt` compile recipes (`recipe.preproc.macros` / `recipe.c.o.pattern` / `recipe.cpp.o.pattern`), matching ESP32 and other cores. This puts the original sketch directory on the include path so sketches can `#include "local_header.h"` for headers placed alongside the sketch.
