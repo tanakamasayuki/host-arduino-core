@@ -6,6 +6,6 @@ profiles:
         platform_index_url: https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
     libraries:
       - M5Unified (0.2.17)
-      - M5GFX (0.2.22)
+      - M5GFX (0.2.23)
 
 default_profile: display

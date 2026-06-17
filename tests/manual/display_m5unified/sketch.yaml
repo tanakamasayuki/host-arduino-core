@@ -3,6 +3,6 @@ profiles:
     fqbn: lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x1,m5gfx_rotation=r0
     libraries:
       - M5Unified (0.2.17)
-      - M5GFX (0.2.22)
+      - M5GFX (0.2.23)
 
 default_profile: display
