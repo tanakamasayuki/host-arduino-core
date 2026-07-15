@@ -125,6 +125,25 @@ typedef uint16_t word;
 #define _BV(b) (1UL << (b))
 #endif
 
+// arduino-esp32 compatibility. On the ESP32 core these macros override weak
+// functions the runtime consults during startup. The host build has no loop
+// task / startup wait / chip report, so the defined functions are simply never
+// called (no-op). Defined verbatim so sketches using them still build here.
+#define SET_LOOP_TASK_STACK_SIZE(sz)     \
+  size_t getArduinoLoopTaskStackSize() { \
+    return sz;                           \
+  }
+
+#define SET_TIME_BEFORE_STARTING_SKETCH_MS(time_ms) \
+  uint64_t getArduinoSetupWaitTime_ms() {           \
+    return (time_ms);                               \
+  }
+
+#define ENABLE_CHIP_DEBUG_REPORT          \
+  bool shouldPrintChipDebugReport(void) { \
+    return true;                          \
+  }
+
 extern void setup();
 extern void loop();
 
