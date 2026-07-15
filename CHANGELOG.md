@@ -1,6 +1,8 @@
 # Changelog / 変更履歴
 
 ## Unreleased
+
+## 1.4.7
 - (EN) Added arduino-esp32-compatible no-op compat macros to `cores/host/Arduino.h`: `SET_LOOP_TASK_STACK_SIZE(sz)`, `SET_TIME_BEFORE_STARTING_SKETCH_MS(ms)`, and `ENABLE_CHIP_DEBUG_REPORT`. Each is defined verbatim from the ESP32 core (3.3.x) and expands to the same weak-override function it does there (`getArduinoLoopTaskStackSize` / `getArduinoSetupWaitTime_ms` / `shouldPrintChipDebugReport`). The host build has no loop task, startup wait, or chip report, so the defined functions are simply never called — they exist only so ESP32 sketches using these macros still compile against the host core.
 - (JA) arduino-esp32 互換の no-op 互換マクロを `cores/host/Arduino.h` に追加した: `SET_LOOP_TASK_STACK_SIZE(sz)`、`SET_TIME_BEFORE_STARTING_SKETCH_MS(ms)`、`ENABLE_CHIP_DEBUG_REPORT`。いずれも ESP32 コア（3.3.x）と同一定義で、あちらと同じ weak 上書き関数（`getArduinoLoopTaskStackSize` / `getArduinoSetupWaitTime_ms` / `shouldPrintChipDebugReport`）に展開される。host ビルドには loop task・起動待ち・チップレポートの概念が無いため、定義された関数は呼ばれることがなく、これらのマクロを使う ESP32 スケッチが host コアでもコンパイルできるようにするためだけに存在する。
 
