@@ -3,7 +3,7 @@ profiles:
     fqbn: lang-ship:host:host:mode=lgfx
     port: socket://localhost
     libraries:
-      - M5GFX (0.2.23)
+      - M5GFX (0.2.25)
       - dir: ../../common_libs/gfx_demo
 
 default_profile: host

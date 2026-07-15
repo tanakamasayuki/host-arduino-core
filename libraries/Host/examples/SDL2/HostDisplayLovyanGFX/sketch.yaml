@@ -5,6 +5,6 @@ profiles:
       - platform: lang-ship:host (1.4.6)
         platform_index_url: https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
     libraries:
-      - LovyanGFX (1.2.21)
+      - LovyanGFX (1.2.25)
 
 default_profile: display
