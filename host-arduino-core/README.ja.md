@@ -86,22 +86,23 @@ ESP32 拡張かを示します。
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | 優先度低 |
 | Ethernet（`ETH`） | 🔲 | ESP32 | host では `WiFi` と区別する意味が薄い |
 
-### ハードウェア I/O（意図的にスタブ化）
+### ハードウェア I/O
 
-ハードウェアに依存する API は「実機向けスケッチが少なくともリンクできる」
-ことを目的にスタブ化しています。ピンの状態が結果に影響するテストは、
-スケッチ層でモックする想定です。
+ハードウェアに依存する API の多くは「実機向けスケッチが少なくともリンクできる」
+ことを目的にスタブ化しています。ただしデジタルピン、`SPI`、`Wire` はスタブ以上の
+もので、[バス観測口](#バス観測口)を構成します。ライブラリ側が自前のデバイス模型を
+持ち、スケッチがバスに流したものからそれを駆動できます。
 
 | API | 状況 | 出自 | 備考 |
 |-----|------|------|------|
-| `pinMode` / `digitalWrite` / `digitalRead` | 🟡 | Arduino | no-op、`digitalRead` は `0` を返す |
+| `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | ピンの値を保持する。`digitalRead` は直前に書いた値を返し、`INPUT_PULLUP` は HIGH を読む。書き込みは任意のフックへ通知される（[バス観測口](#バス観測口)）。電気的挙動とタイミングは再現しない |
 | `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | `0` を返す |
 | `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
 | `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op |
 | `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op スタブで十分 |
-| `Wire`（I²C） | 🔲 | Arduino | 「初期化成功・デバイス無し」スタブの方針 |
-| `SPI` | 🔲 | Arduino | `Wire` と同じ方針 |
+| `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`Wire1` も提供 |
+| `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで取れる。タイミングは再現しない |
 | `Servo` | 🔲 | Arduino | no-op スタブ |
 
 ### ESP-IDF / ベンダー拡張
@@ -140,8 +141,10 @@ ESP32 拡張かを示します。
 
 ```
 tests/
-  runtime/  smoke, timing, print_api
-  storage/  fs
+  runtime/  smoke, timing, print_api, esp_log, gpio_hook, spi_hook,
+            wire_hook, esp_random, esp_timer, freertos_mutex,
+            freertos_notify, freertos_queue, freertos_task
+  storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
             http_get, https_get, http_redirect
@@ -168,6 +171,159 @@ uv run --env-file .env pytest --profile esp32 interop/
 
 各リーフは `.ino` + `sketch.yaml` + `test_*.py` の 3 点セットで、新しい
 テストを追加するとマトリックスの 1 マスが緑になっていきます。
+
+## バス観測口
+
+このコアは周辺機器を意図的に模型化しません。デバイスのプロトコルを知っているのは
+そのデバイスを扱うライブラリ側です（ST7789 の初期化列は表示ライブラリ、SD の
+コマンドセットは SD ライブラリの持ち物）。コアがデバイス模型を抱え始めると際限が
+ありません。コアが用意するのは「バスを覗き、応答を差し込む口」だけで、デバイスの
+模型はライブラリ側に置きます。
+
+```text
+スケッチ ──SPI.transfer()──▶ コアの SPI ─────┐
+                                              ├──▶ 観測・応答フック
+スケッチ ──digitalWrite()──▶ コアの GPIO ────┘         │
+                             （書き込み通知）           ▼  ライブラリ側の模型
+                                              例: ST7789 のコマンド解釈
+                                                        │
+                                                        ▼
+                                                  仮想 GRAM → PPM / PNG
+```
+
+| バス | 宣言場所 | フック |
+|------|----------|--------|
+| GPIO | `cores/host/HostBus.h`（常に利用可能） | `HostArduino::setPinWriteHook` / `setPinReadHook` / `setPinModeHook` |
+| SPI | 同梱 `SPI` ライブラリ | `SPI.setTransferHook` / `SPI.setTransactionHook` |
+| I²C | 同梱 `Wire` ライブラリ | `Wire.setWriteHook` / `Wire.setReadHook` |
+
+ライブラリ側の分岐は `HOST_ARDUINO` で行えます。`platform.txt` が両ボードで常に
+定義しています。
+
+**フックは種類ごとに 1 スロットです。** 登録は前のフックを置き換えます。チェインに
+すると 1 フレームで数百万回通る経路にメモリ確保が入るためです。したがって 1 つの
+スケッチでバスを持てるのは同時に 1 ライブラリだけです。1 つの模型が同じバスを
+使い回すならピン番号やアドレスで振り分けられますが、**2 つのライブラリが同じバスを
+同時に観測することはできません**。`nullptr`（または `clearPinHooks()` /
+`clearHooks()`）でスロットを解放できるので、テスト内で模型を差し替えるのはその形で
+行います。
+
+### GPIO — ビットバン経路を丸ごと拾える口
+
+いちばん効くのはこちらです。ビットバンの転送はバスクラスを一切経由しないためで、
+ソフト SPI、ソフト I²C、WS2812、IR のパルスはすべて `digitalWrite` を直接叩きます。
+
+- `digitalWrite` はすべてフックへ通知されます（同じ値の書き込みも含む。エッジの
+  判定は模型側の仕事）。
+- 各ピンは直前に書かれた値を保持し、`digitalRead` がそれを返します。
+- `pinMode(pin, INPUT_PULLUP)` は保持値を HIGH に（`INPUT_PULLDOWN` は LOW に）
+  します。open-drain を release した線が実機どおりに読めるのはこのためです。
+  `INPUT` は保持値を変更しません（フローティングのピンに定義された電位は無い）。
+- `HostArduino::setPinValue(pin, level)` で入力値を差し込めます。これが GPIO 側の
+  応答方向です。読み出し時に値を計算したい模型向けに `setPinReadHook` もあります。
+- 追跡するのはピン 0〜255 です。範囲外への書き込みはフックを呼ばずに捨て、読み出し
+  は 0 を返します。
+
+```cpp
+#include <Arduino.h>
+
+// 表示ライブラリが持つべきものの代役: SCK の立ち上がりでビットを組み立て、
+// DC 線を読んでコマンドとデータを区別する。
+void onPinWrite(uint8_t pin, uint8_t value, void *user)
+{
+    auto *model = static_cast<PanelModel *>(user);
+    if (pin != PIN_SCK || !value) return;
+    model->shiftIn(digitalRead(PIN_MOSI));
+    if (model->byteComplete()) {
+        model->feedByte(digitalRead(PIN_DC) == LOW);   // LOW ならコマンド
+    }
+}
+
+HostArduino::setPinWriteHook(onPinWrite, &model);
+```
+
+コスト（実測）: 240x240 16bpp の 1 フレームをビットバンで押し出す場合
+（`digitalWrite` 276 万回）、フック無しで 1.1 ms、フック有りで 7.2 ms。書き込み経路は
+inline のままで、フックは `std::function` ではなく素の関数ポインタです。
+
+### SPI
+
+`SPI.transfer()` は転送する 1 バイトごとにフックを呼び、その戻り値をそのまま返します。
+つまり 1 本のフックで「会話の観測」と「MISO での応答」の両方が足ります。フック未登録
+の転送は `0xFF` を返します（何も駆動していないアイドルのバスの読み値）。
+
+```cpp
+#include <SPI.h>
+
+uint8_t onByte(uint8_t out, void *user)
+{
+    static_cast<MyPanelModel *>(user)->feedByte(out);
+    return 0xFF;                       // 書き込み専用デバイス
+}
+
+void onTransaction(bool active, const SPISettings &s, void *user)
+{
+    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s.clock(), s.bitOrder(), s.dataMode());
+}
+
+SPI.setTransferHook(onByte, &model);
+SPI.setTransactionHook(onTransaction);
+```
+
+`SPISettings` は読み取り用に `clock()` / `bitOrder()` / `dataMode()` を持ちます。
+アンダースコア付きの `_clock` / `_bitOrder` / `_dataMode` も public のまま残して
+あります（arduino-esp32 のスケッチがその綴りで書くため）。`SPI.settings()` /
+`inTransaction()` / `transferCount()` / `sck()` / `miso()` / `mosi()` / `ss()` が
+あるので、フックを一切使わずに配線とトラフィックを検証することもできます。フックはバイト単位です。ビット順は `SPISettings` として報告するだけで
+バイトには適用しません（並べるべき実際の線が無いため）。クロックは記録するだけで、
+待ちには反映しません。
+
+### I²C
+
+`Wire` は初期化に成功し、バス上には何も居ません（空きアドレスに対してスキャン
+ループが期待する形）。フックはバイト単位ではなくトランザクション単位です。I²C の
+デバイス模型が実際に扱う粒度が、アドレス + ペイロード + ストップ条件だからです。
+
+```cpp
+#include <Wire.h>
+
+uint8_t onWrite(uint8_t addr, const uint8_t *data, size_t len, bool stop, void *user)
+{
+    if (addr != 0x68) return 2;        // アドレス NACK — 誰も居ない
+    static_cast<MySensor *>(user)->command(data, len);
+    return 0;                          // ACK
+}
+
+size_t onRead(uint8_t addr, uint8_t *data, size_t len, bool stop, void *user)
+{
+    return addr == 0x68 ? static_cast<MySensor *>(user)->fill(data, len) : 0;
+}
+
+Wire.setWriteHook(onWrite, &sensor);
+Wire.setReadHook(onRead, &sensor);
+```
+
+再現しないもの: クロックストレッチ、アービトレーション、バスのタイミング、
+スレーブ動作（`onReceive` / `onRequest` は受け付けるが呼ばれない）。
+
+### スレッドと、意図的に用意しないもの
+
+フックはバスを呼んだスレッド上で同期的に実行され、ピンの状態はロック無しの素の配列
+です。`mode=lgfx`（および `display` ボード）では `setup()` / `loop()` がワーカー
+スレッドで動き、FreeRTOS タスクは `std::thread` なので、フックの登録はタスク起動前に
+行い、1 つのバスは 1 スレッドから使ってください。
+
+- **コアにデバイス模型は入れません。** SD カードも LCD も入れません。プロトコルを
+  知っているライブラリの持ち物です。
+- **フックの引数にタイムスタンプは持たせません。** `micros()` が既に利用可能で
+  monotonic なので、必要なフックが自分で呼べば足り、不要なフックは何も払いません。
+- **フレームバッファを渡して表示する口はありません。** `display` ボードの SDL2
+  ウィンドウはコアの持ち物ではなく LovyanGFX の `Panel_sdl` のものです
+  （`cores/host/main.cpp` はそのエントリポイントを前方宣言しているだけ）。目で見たい
+  模型は実行ファイル隣に PPM / PNG を書くか、画素を `LGFX_Sprite` へ流し込んでください。
+
+実例: `libraries/Host/examples/Plane/BusObserve`、および
+`tests/runtime/gpio_hook`、`tests/runtime/spi_hook`、`tests/runtime/wire_hook`。
 
 ## ボード
 
@@ -243,6 +399,8 @@ SDL2 画面とは別にログコンソールへ表示されます。
 - `platform.txt` / `boards.txt`: Arduino platform のメタデータ。リリース ZIP に含めます。
 - `cores/host/Arduino.h`: Arduino スケッチ側に見せる最小 API。
 - `cores/host/HostRuntime.{h,cpp}`: ホスト実行ランタイム、TCP 経由の `Serial`、プロセス起動、接続情報ファイル処理。
+- `cores/host/HostBus.{h,cpp}`: GPIO のピン状態とバス観測フック（[バス観測口](#バス観測口)）。
+- `libraries/SPI/`、`libraries/Wire/`: 同梱の `SPI` / `Wire`。同じ観測口の SPI 半分と I²C 半分。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
 - `scripts/bump_version.py`: `platform.txt` の `version=` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョンを更新します。
 - `scripts/build_package.py`: `package/host-arduino-core/` を作成し、ZIP 作成、SHA-256 算出、`package_index.json` 更新を行います。
