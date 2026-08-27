@@ -103,8 +103,8 @@ void onSpiTransaction(bool active, const SPISettings &settings, void *user)
 {
     (void)user;
     if (active) {
-        Serial.printf("  transaction: %u Hz, bit order %u, mode %u\n", settings._clock, settings._bitOrder,
-                      settings._dataMode);
+        Serial.printf("  transaction: %u Hz, bit order %u, mode %u\n", settings.clock(), settings.bitOrder(),
+                      settings.dataMode());
     }
 }
 

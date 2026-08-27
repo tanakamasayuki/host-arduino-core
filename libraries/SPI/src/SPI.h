@@ -66,8 +66,6 @@
 #define VSPI 3
 #endif
 
-// Fields are public, matching arduino-esp32, so a hook or a test can read
-// what the sketch asked for.
 class SPISettings {
 public:
     SPISettings() : _clock(1000000), _bitOrder(SPI_MSBFIRST), _dataMode(SPI_MODE0) {}
@@ -76,6 +74,16 @@ public:
     {
     }
 
+    // Read these from a hook or a test. The underscored fields below are
+    // the same values; these accessors exist so observing code does not
+    // have to look like it is reaching into private state.
+    uint32_t clock() const { return _clock; }
+    uint8_t bitOrder() const { return _bitOrder; }
+    uint8_t dataMode() const { return _dataMode; }
+
+    // Public and underscored, matching arduino-esp32 — ESP32 sketches and
+    // libraries write `settings._clock` directly, so the spelling has to
+    // stay available.
     uint32_t _clock;
     uint8_t _bitOrder;
     uint8_t _dataMode;

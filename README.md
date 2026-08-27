@@ -203,6 +203,14 @@ sketch ──digitalWrite()──▶ core GPIO ────┘         │
 Guard library-side code with `HOST_ARDUINO`, which `platform.txt` always
 defines for both boards.
 
+**One slot per hook kind.** Registering replaces whatever was registered
+before — there is no chain, because a chain needs allocation on a path that
+runs millions of times per frame. One library at a time can therefore own a
+bus in a given sketch: a model that shares the bus with itself dispatches on
+the pin number or the address, but two libraries cannot both observe the same
+bus in one test. Pass `nullptr` (or `clearPinHooks()` / `clearHooks()`) to
+release a slot, which is how a test hands the bus from one model to the next.
+
 ### GPIO — the one that covers bit-banged transports
 
 This is the half that matters most, because a bit-banged transport never
@@ -263,17 +271,18 @@ uint8_t onByte(uint8_t out, void *user)
 
 void onTransaction(bool active, const SPISettings &s, void *user)
 {
-    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s._clock, s._bitOrder, s._dataMode);
+    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s.clock(), s.bitOrder(), s.dataMode());
 }
 
 SPI.setTransferHook(onByte, &model);
 SPI.setTransactionHook(onTransaction);
 ```
 
-`SPISettings` fields are public (matching arduino-esp32), and
-`SPI.settings()` / `inTransaction()` / `transferCount()` / `sck()` /
-`miso()` / `mosi()` / `ss()` let a test assert the wiring and the traffic
-without a hook at all. The hook is byte-granular: bit order is reported
+`SPISettings` exposes `clock()` / `bitOrder()` / `dataMode()` for reading, and
+keeps the underscored `_clock` / `_bitOrder` / `_dataMode` fields public
+because that is the spelling arduino-esp32 sketches use. `SPI.settings()` /
+`inTransaction()` / `transferCount()` / `sck()` / `miso()` / `mosi()` / `ss()`
+let a test assert the wiring and the traffic without a hook at all. The hook is byte-granular: bit order is reported
 through `SPISettings`, never applied to the byte, because there is no wire
 to serialize onto. Clock rates are recorded, never honored.
 

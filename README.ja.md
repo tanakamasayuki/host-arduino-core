@@ -200,6 +200,14 @@ uv run --env-file .env pytest --profile esp32 interop/
 ライブラリ側の分岐は `HOST_ARDUINO` で行えます。`platform.txt` が両ボードで常に
 定義しています。
 
+**フックは種類ごとに 1 スロットです。** 登録は前のフックを置き換えます。チェインに
+すると 1 フレームで数百万回通る経路にメモリ確保が入るためです。したがって 1 つの
+スケッチでバスを持てるのは同時に 1 ライブラリだけです。1 つの模型が同じバスを
+使い回すならピン番号やアドレスで振り分けられますが、**2 つのライブラリが同じバスを
+同時に観測することはできません**。`nullptr`（または `clearPinHooks()` /
+`clearHooks()`）でスロットを解放できるので、テスト内で模型を差し替えるのはその形で
+行います。
+
 ### GPIO — ビットバン経路を丸ごと拾える口
 
 いちばん効くのはこちらです。ビットバンの転送はバスクラスを一切経由しないためで、
@@ -255,17 +263,18 @@ uint8_t onByte(uint8_t out, void *user)
 
 void onTransaction(bool active, const SPISettings &s, void *user)
 {
-    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s._clock, s._bitOrder, s._dataMode);
+    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s.clock(), s.bitOrder(), s.dataMode());
 }
 
 SPI.setTransferHook(onByte, &model);
 SPI.setTransactionHook(onTransaction);
 ```
 
-`SPISettings` のフィールドは arduino-esp32 に合わせて public です。
-`SPI.settings()` / `inTransaction()` / `transferCount()` / `sck()` / `miso()` /
-`mosi()` / `ss()` があるので、フックを一切使わずに配線とトラフィックを検証すること
-もできます。フックはバイト単位です。ビット順は `SPISettings` として報告するだけで
+`SPISettings` は読み取り用に `clock()` / `bitOrder()` / `dataMode()` を持ちます。
+アンダースコア付きの `_clock` / `_bitOrder` / `_dataMode` も public のまま残して
+あります（arduino-esp32 のスケッチがその綴りで書くため）。`SPI.settings()` /
+`inTransaction()` / `transferCount()` / `sck()` / `miso()` / `mosi()` / `ss()` が
+あるので、フックを一切使わずに配線とトラフィックを検証することもできます。フックはバイト単位です。ビット順は `SPISettings` として報告するだけで
 バイトには適用しません（並べるべき実際の線が無いため）。クロックは記録するだけで、
 待ちには反映しません。
 

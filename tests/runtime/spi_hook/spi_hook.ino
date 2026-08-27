@@ -25,6 +25,7 @@ struct DeviceModel {
     uint8_t bit_order = 0xFF;
     uint8_t data_mode = 0xFF;
     bool active = false;
+    bool fields_agree = false;
 };
 
 DeviceModel model;
@@ -47,9 +48,14 @@ void onTransaction(bool active, const SPISettings &settings, void *user)
     m->active = active;
     if (active) {
         ++m->transactions;
-        m->clock = settings._clock;
-        m->bit_order = settings._bitOrder;
-        m->data_mode = settings._dataMode;
+        m->clock = settings.clock();
+        m->bit_order = settings.bitOrder();
+        m->data_mode = settings.dataMode();
+        // The arduino-esp32 field spelling stays available; keep it
+        // exercised so it cannot quietly disappear.
+        m->fields_agree = settings._clock == settings.clock() &&
+                          settings._bitOrder == settings.bitOrder() &&
+                          settings._dataMode == settings.dataMode();
     }
 }
 
@@ -75,6 +81,7 @@ void setup()
     SPI.beginTransaction(SPISettings(24000000, MSBFIRST, SPI_MODE0));
     Serial.printf("settings: clock=%u order=%u mode=%u active=%d in=%d\n", model.clock, model.bit_order,
                   model.data_mode, model.active ? 1 : 0, SPI.inTransaction() ? 1 : 0);
+    Serial.printf("fields: agree=%d\n", model.fields_agree ? 1 : 0);
 
     // Bytes reach the model, and its answer reaches the sketch.
     const uint8_t response = SPI.transfer(0x2A);

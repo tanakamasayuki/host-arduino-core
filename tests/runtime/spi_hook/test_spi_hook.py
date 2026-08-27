@@ -18,6 +18,10 @@ def test_spi_hook(dut):
     # (MSBFIRST is 1, SPI_MODE0 is 0).
     dut.expect("settings: clock=24000000 order=1 mode=0 active=1 in=1", timeout=10)
 
+    # The accessors and the arduino-esp32 `_clock` / `_bitOrder` /
+    # `_dataMode` field spelling report the same values.
+    dut.expect("fields: agree=1", timeout=10)
+
     # The model's answer is what the sketch reads back (~0x2A == 0xD5).
     dut.expect("miso: sent=2A read=D5", timeout=10)
 
