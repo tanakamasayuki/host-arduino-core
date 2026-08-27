@@ -1,6 +1,8 @@
 profiles:
   display:
     fqbn: lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x1,m5gfx_rotation=r0
+    platforms:
+      - platform: lang-ship:host
     libraries:
       - M5Unified (0.2.18)
       - M5GFX (0.2.25)

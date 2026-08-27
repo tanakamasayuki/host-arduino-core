@@ -1,6 +1,8 @@
 profiles:
   display:
     fqbn: lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0
+    platforms:
+      - platform: lang-ship:host
     libraries:
       - LovyanGFX (1.2.25)
 

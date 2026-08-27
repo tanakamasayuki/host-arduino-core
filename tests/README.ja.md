@@ -197,24 +197,38 @@ uv run pytest manual/display_lovyangfx/display_lovyangfx.py -q
 
 ## ローカル版を使う仕組み
 
-host profile の `sketch.yaml` では、意図的に `platforms:` ブロックを
-書きません：
+host profile の `sketch.yaml` は、platform を**バージョン無し**で宣言します：
 
 ```yaml
 profiles:
   host:
     fqbn: lang-ship:host:host
+    platforms:
+      - platform: lang-ship:host        # バージョン無し → ローカル解決
     port: socket://localhost
 ```
 
 `tests/conftest.py` の session fixture が、テスト開始前にこの working tree
-を `<sketchbook>/hardware/lang-ship/host` として登録します。FQBN だけなら、
-arduino-cli はそのローカル hardware entry から `lang-ship:host` を解決し、
-公開済みパッケージをインストール・更新しに行きません。コアを編集して
+を `<sketchbook>/hardware/lang-ship/host` として登録します。バージョンを
+書かないエントリは arduino-cli に「system installed の platform を要求する」
+という意味になり、そのローカル hardware entry から `lang-ship:host` を解決
+して、公開済みパッケージをインストール・更新しに行きません。コアを編集して
 `pytest` を再実行すれば反映されます。リリース不要です。
 
-逆に *リリース済み* のバージョンを検証したい場合は、`platforms:` ブロッ
-クにバージョンと index URL を書きます：
+差が出るのはバージョンの有無です。`lang-ship:host (1.4.7)` と書くと
+arduino-cli はそのリリースを package index から取得しに行きます。ここの
+テストが絶対にやってはいけない動作です。
+
+なお `platforms:` ブロックを丸ごと省略する書き方は、以前は動きましたが今は
+動きません。arduino-cli 1.3.x が
+`Profile.RequireSystemInstalledPlatform` の中で panic（`index out of range`）
+し、コンパイルに入る前にスイート全体が落ちます。バージョン無しエントリが
+その回避策で、ローカル解決の性質はそのまま維持されます（arduino-cli 1.3.1 で
+確認）。バージョン無し参照を受け付けないほど古い arduino-cli を使っている場合は、
+ブロックを再び省略するのではなく arduino-cli を上げてください。
+
+逆に *リリース済み* のバージョンを検証したい場合は、バージョンと index URL
+を書きます：
 
 ```yaml
 platforms:

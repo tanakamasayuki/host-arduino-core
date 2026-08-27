@@ -1,6 +1,8 @@
 profiles:
   host:
     fqbn: lang-ship:host:host:mode=lgfx
+    platforms:
+      - platform: lang-ship:host
     port: socket://localhost
     libraries:
       - M5Unified (0.2.18)

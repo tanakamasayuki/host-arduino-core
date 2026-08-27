@@ -212,24 +212,37 @@ stream to read.
 
 ## How the local-version trick works
 
-Host profiles in `sketch.yaml` intentionally do **not** declare a
-`platforms:` block:
+Host profiles in `sketch.yaml` declare the platform **without a version**:
 
 ```yaml
 profiles:
   host:
     fqbn: lang-ship:host:host
+    platforms:
+      - platform: lang-ship:host        # no version → resolve locally
     port: socket://localhost
 ```
 
 The session fixture in `tests/conftest.py` registers this working tree as
-`<sketchbook>/hardware/lang-ship/host` before tests run. With the FQBN alone,
-arduino-cli resolves `lang-ship:host` through that local hardware entry and
-does not try to install or update a released package. Edit the core, re-run
-pytest, done. No release needed.
+`<sketchbook>/hardware/lang-ship/host` before tests run. A versionless entry
+tells arduino-cli to require the platform as *system installed*, so it
+resolves `lang-ship:host` through that local hardware entry and never tries
+to install or update a released package. Edit the core, re-run pytest, done.
+No release needed.
 
-To verify a *released* version instead, add a `platforms:` block with the
-version and index URL:
+The version is what makes the difference: writing `lang-ship:host (1.4.7)`
+sends arduino-cli to the package index to download that release, which is
+exactly what these tests must not do.
+
+Omitting the `platforms:` block altogether used to work and no longer does:
+arduino-cli 1.3.x panics (`index out of range` inside
+`Profile.RequireSystemInstalledPlatform`) before it compiles anything, which
+takes down every test in the suite. The versionless entry is the fix, and it
+keeps local resolution intact — verified with arduino-cli 1.3.1. If you are on
+an arduino-cli old enough to reject a versionless platform reference, upgrade
+rather than dropping the block again.
+
+To verify a *released* version instead, add the version and index URL:
 
 ```yaml
 platforms:

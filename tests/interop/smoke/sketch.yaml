@@ -1,6 +1,8 @@
 profiles:
   host:
     fqbn: lang-ship:host:host
+    platforms:
+      - platform: lang-ship:host
     port: socket://localhost
 
   esp32:
