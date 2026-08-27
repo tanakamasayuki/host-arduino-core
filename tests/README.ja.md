@@ -219,13 +219,15 @@ profiles:
 arduino-cli はそのリリースを package index から取得しに行きます。ここの
 テストが絶対にやってはいけない動作です。
 
-なお `platforms:` ブロックを丸ごと省略する書き方は、以前は動きましたが今は
-動きません。arduino-cli 1.3.x が
-`Profile.RequireSystemInstalledPlatform` の中で panic（`index out of range`）
-し、コンパイルに入る前にスイート全体が落ちます。バージョン無しエントリが
-その回避策で、ローカル解決の性質はそのまま維持されます（arduino-cli 1.3.1 で
-確認）。バージョン無し参照を受け付けないほど古い arduino-cli を使っている場合は、
-ブロックを再び省略するのではなく arduino-cli を上げてください。
+なお `platforms:` ブロックを丸ごと省略する書き方（以前のこのリポジトリの形）でも
+ローカル解決はされますが、arduino-cli 1.3.x の regression を踏みます。
+`Profile.RequireSystemInstalledPlatform` の中で panic（`index out of range`）し、
+コンパイルに入る前にスイート全体が落ちます。これは 1.5.2 で upstream 側が直して
+いるので、そちらでは両方の書き方が通ります。
+
+ここでバージョン無しエントリを明示しているのは、**どちらのバージョンでも通る**
+書き方だからです（arduino-cli 1.3.1 と 1.5.2-rc.1 で確認）。1.3.x を使っている人でも
+スイートを回せます。
 
 逆に *リリース済み* のバージョンを検証したい場合は、バージョンと index URL
 を書きます：

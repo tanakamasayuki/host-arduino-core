@@ -234,13 +234,16 @@ The version is what makes the difference: writing `lang-ship:host (1.4.7)`
 sends arduino-cli to the package index to download that release, which is
 exactly what these tests must not do.
 
-Omitting the `platforms:` block altogether used to work and no longer does:
-arduino-cli 1.3.x panics (`index out of range` inside
-`Profile.RequireSystemInstalledPlatform`) before it compiles anything, which
-takes down every test in the suite. The versionless entry is the fix, and it
-keeps local resolution intact — verified with arduino-cli 1.3.1. If you are on
-an arduino-cli old enough to reject a versionless platform reference, upgrade
-rather than dropping the block again.
+Omitting the `platforms:` block altogether — which is how these profiles used
+to be written — also resolves locally, but it hits a regression in
+arduino-cli 1.3.x: the CLI panics (`index out of range` inside
+`Profile.RequireSystemInstalledPlatform`) before compiling anything, taking
+down every test in the suite. That is fixed upstream again by 1.5.2, so both
+spellings work there.
+
+The versionless entry is spelled out here because it works on both — verified
+against arduino-cli 1.3.1 and 1.5.2-rc.1 — so a contributor who happens to be
+on a 1.3.x can still run the suite.
 
 To verify a *released* version instead, add the version and index URL:
 
