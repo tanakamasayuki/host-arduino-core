@@ -8,6 +8,7 @@
 #include <string>
 #include <thread>
 
+#include "HostBus.h"
 #include "Stream.h"
 
 namespace HostArduino {
@@ -112,9 +113,42 @@ inline void yield()
     std::this_thread::yield();
 }
 
-inline void pinMode(int, int) {}
-inline void digitalWrite(int, int) {}
-inline int digitalRead(int) { return 0; }
+// GPIO — see cores/host/HostBus.h for what the pin state and the hooks
+// are for. `digitalWrite` / `digitalRead` stay inline here because
+// bit-banged transports call them millions of times per frame; the state
+// and the hook pointers live in HostBus.cpp so every translation unit
+// shares one set.
+inline void pinMode(int pin, int mode)
+{
+    HostArduino::bus_detail::applyPinMode(pin, mode);
+}
+
+inline void digitalWrite(int pin, int value)
+{
+    if (static_cast<unsigned>(pin) >= static_cast<unsigned>(HostArduino::kGpioPinCount)) {
+        return;
+    }
+    const uint8_t level = value ? 1 : 0;
+    HostArduino::bus_detail::pin_value[pin] = level;
+    if (HostArduino::bus_detail::pin_write_hook) {
+        HostArduino::bus_detail::pin_write_hook(static_cast<uint8_t>(pin), level,
+                                               HostArduino::bus_detail::pin_write_hook_user);
+    }
+}
+
+inline int digitalRead(int pin)
+{
+    if (static_cast<unsigned>(pin) >= static_cast<unsigned>(HostArduino::kGpioPinCount)) {
+        return 0;
+    }
+    const uint8_t held = HostArduino::bus_detail::pin_value[pin];
+    if (HostArduino::bus_detail::pin_read_hook) {
+        return HostArduino::bus_detail::pin_read_hook(static_cast<uint8_t>(pin), held,
+                                                     HostArduino::bus_detail::pin_read_hook_user);
+    }
+    return held;
+}
+
 inline int analogRead(int) { return 0; }
 inline void analogWrite(int, int) {}
 inline void analogReadResolution(uint8_t) {}

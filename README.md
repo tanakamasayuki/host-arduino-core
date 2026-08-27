@@ -86,21 +86,23 @@ Legend:
 | `Ping` / `NetworkInterface` | 🔲 | ESP32 | low priority |
 | Ethernet (`ETH`) | 🔲 | ESP32 | on the host there is no real distinction from `WiFi` |
 
-### Hardware I/O (intentionally stubbed)
+### Hardware I/O
 
-These are stubbed so that real-hardware sketches at least link. Tests that
-care about pin state should mock at the sketch layer.
+Most of these are stubbed so that real-hardware sketches at least link.
+The digital pins, `SPI`, and `Wire` are more than stubs: they form the
+[bus observation port](#bus-observation-port), which lets a library keep
+its own device model and drive it from what the sketch puts on the bus.
 
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
-| `pinMode` / `digitalWrite` / `digitalRead` | 🟡 | Arduino | no-op stubs; `digitalRead` returns `0` |
+| `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | pin state is held: `digitalRead` returns the last value written, `INPUT_PULLUP` reads HIGH. Every write is announced to an optional hook — see [Bus Observation Port](#bus-observation-port). No electrical behavior, no timing |
 | `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op stubs |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | returns `0` |
 | `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
 | `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op stubs |
 | `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op stubs would be sufficient |
-| `Wire` (I²C) | 🔲 | Arduino | "init succeeds, no device present" stub is the planned shape |
-| `SPI` | 🔲 | Arduino | same shape as `Wire` |
+| `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `Wire1` also provided |
+| `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook. Timing is not modelled |
 | `Servo` | 🔲 | Arduino | no-op stub |
 
 ### ESP-IDF / vendor extensions
@@ -140,8 +142,10 @@ behavioral coverage:
 
 ```
 tests/
-  runtime/  smoke, timing, print_api
-  storage/  fs
+  runtime/  smoke, timing, print_api, esp_log, gpio_hook, spi_hook,
+            wire_hook, esp_random, esp_timer, freertos_mutex,
+            freertos_notify, freertos_queue, freertos_task
+  storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
             http_get, https_get, http_redirect
@@ -169,6 +173,160 @@ cleanly on both targets.
 
 Each leaf has a `.ino` + `sketch.yaml` + `test_*.py`. New tests prove a
 square in the matrix goes green.
+
+## Bus Observation Port
+
+Peripherals are deliberately not modelled by this core. The code that knows
+a device's protocol is the library that drives that device — an ST7789
+init sequence belongs to a display library, the SD command set to an SD
+library — so a core that started collecting device models would never stop
+growing. What the core provides instead is a place to watch a bus from and
+to answer on. The device model stays on the library side.
+
+```text
+sketch ──SPI.transfer()──▶ core SPI ─────┐
+                                         ├──▶ observation / response hook
+sketch ──digitalWrite()──▶ core GPIO ────┘         │
+                        (write announced)          ▼   library-side model
+                                          e.g. an ST7789 decoder
+                                                   │
+                                                   ▼
+                                          virtual GRAM → PPM / PNG
+```
+
+| Bus | Declared in | Hooks |
+|-----|-------------|-------|
+| GPIO | `cores/host/HostBus.h` (always available) | `HostArduino::setPinWriteHook` / `setPinReadHook` / `setPinModeHook` |
+| SPI | bundled `SPI` library | `SPI.setTransferHook` / `SPI.setTransactionHook` |
+| I²C | bundled `Wire` library | `Wire.setWriteHook` / `Wire.setReadHook` |
+
+Guard library-side code with `HOST_ARDUINO`, which `platform.txt` always
+defines for both boards.
+
+### GPIO — the one that covers bit-banged transports
+
+This is the half that matters most, because a bit-banged transport never
+goes through a bus class: soft SPI, soft I²C, WS2812, and IR pulses all
+just call `digitalWrite`.
+
+- Every `digitalWrite` is announced to the write hook, same-value writes
+  included — edge detection is the model's job.
+- Each pin holds the last value written; `digitalRead` returns it.
+- `pinMode(pin, INPUT_PULLUP)` seeds the held value HIGH (`INPUT_PULLDOWN`
+  LOW), so a released open-drain line reads back the way it would on real
+  silicon. `INPUT` leaves the held value alone — a floating pin has no
+  defined level.
+- `HostArduino::setPinValue(pin, level)` injects an input level: the
+  response direction for GPIO. `setPinReadHook` is there for levels a model
+  has to compute at read time.
+- Pins 0–255 are tracked. Writes outside that range are dropped without a
+  hook call, reads return 0.
+
+```cpp
+#include <Arduino.h>
+
+// Stand-in for what a display library would own: reassemble bytes from
+// SCK rising edges, tell command from data by reading the DC line.
+void onPinWrite(uint8_t pin, uint8_t value, void *user)
+{
+    auto *model = static_cast<PanelModel *>(user);
+    if (pin != PIN_SCK || !value) return;
+    model->shiftIn(digitalRead(PIN_MOSI));
+    if (model->byteComplete()) {
+        model->feedByte(digitalRead(PIN_DC) == LOW);   // LOW = command
+    }
+}
+
+HostArduino::setPinWriteHook(onPinWrite, &model);
+```
+
+Cost, measured on one 240x240 16bpp frame pushed out over bit-banged SPI
+(2.76 million `digitalWrite` calls): 1.1 ms with no hook, 7.2 ms with one.
+The write path is inline and the hook is a plain function pointer, not a
+`std::function`.
+
+### SPI
+
+`SPI.transfer()` hands every byte to the transfer hook and returns what the
+hook returned, so one hook covers both watching the conversation and
+answering on MISO. With no hook registered a transfer reads `0xFF` — an
+idle bus with nothing driving it.
+
+```cpp
+#include <SPI.h>
+
+uint8_t onByte(uint8_t out, void *user)
+{
+    static_cast<MyPanelModel *>(user)->feedByte(out);
+    return 0xFF;                       // write-only device
+}
+
+void onTransaction(bool active, const SPISettings &s, void *user)
+{
+    if (active) Serial.printf("%u Hz, order %u, mode %u\n", s._clock, s._bitOrder, s._dataMode);
+}
+
+SPI.setTransferHook(onByte, &model);
+SPI.setTransactionHook(onTransaction);
+```
+
+`SPISettings` fields are public (matching arduino-esp32), and
+`SPI.settings()` / `inTransaction()` / `transferCount()` / `sck()` /
+`miso()` / `mosi()` / `ss()` let a test assert the wiring and the traffic
+without a hook at all. The hook is byte-granular: bit order is reported
+through `SPISettings`, never applied to the byte, because there is no wire
+to serialize onto. Clock rates are recorded, never honored.
+
+### I²C
+
+`Wire` initializes successfully and finds nothing on the bus — the shape a
+scan loop expects for an empty address. Its hooks are transaction-granular
+rather than byte-granular, because that is the level an I²C device model
+works at: an address, a payload, a stop condition.
+
+```cpp
+#include <Wire.h>
+
+uint8_t onWrite(uint8_t addr, const uint8_t *data, size_t len, bool stop, void *user)
+{
+    if (addr != 0x68) return 2;        // address NACK — nobody home
+    static_cast<MySensor *>(user)->command(data, len);
+    return 0;                          // ACK
+}
+
+size_t onRead(uint8_t addr, uint8_t *data, size_t len, bool stop, void *user)
+{
+    return addr == 0x68 ? static_cast<MySensor *>(user)->fill(data, len) : 0;
+}
+
+Wire.setWriteHook(onWrite, &sensor);
+Wire.setReadHook(onRead, &sensor);
+```
+
+Not modelled: clock stretching, arbitration, bus timing, and the slave role
+(`onReceive` / `onRequest` are accepted and never called).
+
+### Threading, and what is deliberately absent
+
+Hooks run synchronously on the thread that called into the bus, and the pin
+state is a plain array with no locking. With `mode=lgfx` (and on the
+`display` board) `setup()` / `loop()` run on a worker thread, and FreeRTOS
+tasks are `std::thread` — so register hooks before starting tasks, and keep
+one bus to one thread.
+
+- **No device models in the core.** No SD card, no LCD. Those belong to the
+  libraries that speak their protocols.
+- **No timestamps in hook signatures.** `micros()` is already available and
+  monotonic; a hook that cares calls it, one that does not pays nothing.
+- **No framebuffer-to-window API.** The SDL2 window on the `display` board
+  belongs to LovyanGFX's `Panel_sdl`, not to the core — `cores/host/main.cpp`
+  only forward-declares its entry point. A model that wants to be looked at
+  can write PPM / PNG next to the executable, or push its pixels into an
+  `LGFX_Sprite`.
+
+Worked examples: `libraries/Host/examples/Plane/BusObserve`, and the tests
+in `tests/runtime/gpio_hook`, `tests/runtime/spi_hook`, and
+`tests/runtime/wire_hook`.
 
 ## Boards
 
@@ -238,6 +396,8 @@ and log console separate.
 - `platform.txt` / `boards.txt`: Arduino platform metadata copied into the release ZIP.
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
+- `cores/host/HostBus.{h,cpp}`: GPIO pin state and the bus observation hooks (see [Bus Observation Port](#bus-observation-port)).
+- `libraries/SPI/`, `libraries/Wire/`: bundled `SPI` / `Wire` with the SPI and I²C halves of the same port.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
 - `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.
 - `scripts/build_package.py`: creates `package/host-arduino-core/`, produces the ZIP, computes SHA-256, and updates `package_index.json`.
