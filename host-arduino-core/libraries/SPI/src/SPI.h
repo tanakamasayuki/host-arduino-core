@@ -27,6 +27,13 @@
 // is how a test asserts "this panel is being driven at 24 MHz, MSB first,
 // mode 0" instead of only checking the bytes.
 //
+// A third hook covers the bus's own lifecycle — `begin()`, `end()`, and
+// the configuration setters that a driver uses instead of transactions.
+// The pins were always readable through `sck()` / `miso()` / `mosi()` /
+// `ss()`, but reading them afterwards cannot tell you *when* the bus came
+// up relative to the reset pulse and the backlight next to it. That
+// ordering is what a test compares against a golden trace.
+//
 // Deliberate limits:
 //   - The hook is byte-granular. Bit order is reported through
 //     `SPISettings`, not applied to the byte handed to the hook — the core
@@ -102,6 +109,23 @@ public:
     // configuration in both cases.
     using TransactionHook = void (*)(bool active, const SPISettings &settings, void *user);
 
+    // Bus setup, in the order the sketch performed it. `kConfig` covers
+    // `setFrequency` / `setBitOrder` / `setDataMode` / `setClockDivider` /
+    // `setHwCs` — the transaction-free spelling a driver reaches for when
+    // it owns the bus outright. Read the new value off `settings()` (or
+    // `getClockDivider()` / `hwCs()`) inside the hook.
+    enum LifecycleEvent : uint8_t {
+        kBegin = 0,
+        kEnd,
+        kConfig,
+    };
+
+    // Called after the change has been applied, so `spi` already reports
+    // the new state. The whole object is passed rather than the changed
+    // field: `bus()` is what tells two SPIClass instances apart when one
+    // model watches both.
+    using LifecycleHook = void (*)(LifecycleEvent event, const SPIClass &spi, void *user);
+
     explicit SPIClass(uint8_t spi_bus = HSPI) : _bus(spi_bus) {}
 
     // --- Arduino / ESP32 surface -------------------------------------
@@ -112,12 +136,38 @@ public:
     void beginTransaction(SPISettings settings = SPISettings());
     void endTransaction();
 
-    void setBitOrder(uint8_t bitOrder) { _settings._bitOrder = bitOrder; }
-    void setDataMode(uint8_t dataMode) { _settings._dataMode = dataMode; }
-    void setFrequency(uint32_t frequency) { _settings._clock = frequency; }
-    void setClockDivider(uint32_t divider) { _clockDivider = divider; }
+    void setBitOrder(uint8_t bitOrder)
+    {
+        _settings._bitOrder = bitOrder;
+        reportLifecycle(kConfig);
+    }
+
+    void setDataMode(uint8_t dataMode)
+    {
+        _settings._dataMode = dataMode;
+        reportLifecycle(kConfig);
+    }
+
+    void setFrequency(uint32_t frequency)
+    {
+        _settings._clock = frequency;
+        reportLifecycle(kConfig);
+    }
+
+    void setClockDivider(uint32_t divider)
+    {
+        _clockDivider = divider;
+        reportLifecycle(kConfig);
+    }
+
     uint32_t getClockDivider() const { return _clockDivider; }
-    void setHwCs(bool use) { _hwCs = use; }
+
+    void setHwCs(bool use)
+    {
+        _hwCs = use;
+        reportLifecycle(kConfig);
+    }
+
     uint8_t bus() const { return _bus; }
 
     // Hot path: one counter bump plus one null-checked indirect call.
@@ -183,12 +233,20 @@ public:
         _transactionHookUser = user;
     }
 
+    void setLifecycleHook(LifecycleHook hook, void *user = nullptr)
+    {
+        _lifecycleHook = hook;
+        _lifecycleHookUser = user;
+    }
+
     void clearHooks()
     {
         _transferHook = nullptr;
         _transferHookUser = nullptr;
         _transactionHook = nullptr;
         _transactionHookUser = nullptr;
+        _lifecycleHook = nullptr;
+        _lifecycleHookUser = nullptr;
     }
 
     // Settings in force now: what the last `beginTransaction` installed,
@@ -226,6 +284,15 @@ private:
     void *_transferHookUser = nullptr;
     TransactionHook _transactionHook = nullptr;
     void *_transactionHookUser = nullptr;
+    LifecycleHook _lifecycleHook = nullptr;
+    void *_lifecycleHookUser = nullptr;
+
+    void reportLifecycle(LifecycleEvent event)
+    {
+        if (_lifecycleHook) {
+            _lifecycleHook(event, *this, _lifecycleHookUser);
+        }
+    }
 };
 
 extern SPIClass SPI;

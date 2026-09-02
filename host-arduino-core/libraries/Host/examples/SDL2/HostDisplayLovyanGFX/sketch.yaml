@@ -2,7 +2,7 @@ profiles:
   display:
     fqbn: lang-ship:host:display:m5gfx_board=board_M5Stack,m5gfx_scale=x2,m5gfx_rotation=r0
     platforms:
-      - platform: lang-ship:host (1.5.0)
+      - platform: lang-ship:host (1.6.0)
         platform_index_url: https://tanakamasayuki.github.io/lang-ship-arduino-core/package_lang-ship_index.json
     libraries:
       - LovyanGFX (1.2.25)

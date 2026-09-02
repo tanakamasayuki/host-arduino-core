@@ -10,12 +10,14 @@ void SPIClass::begin(int8_t sck, int8_t miso, int8_t mosi, int8_t ss)
     _mosi = mosi;
     _ss = ss;
     _begun = true;
+    reportLifecycle(kBegin);
 }
 
 void SPIClass::end()
 {
     _begun = false;
     _inTransaction = false;
+    reportLifecycle(kEnd);
 }
 
 void SPIClass::beginTransaction(SPISettings settings)

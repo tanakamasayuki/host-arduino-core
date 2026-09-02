@@ -89,20 +89,26 @@ ESP32 拡張かを示します。
 ### ハードウェア I/O
 
 ハードウェアに依存する API の多くは「実機向けスケッチが少なくともリンクできる」
-ことを目的にスタブ化しています。ただしデジタルピン、`SPI`、`Wire` はスタブ以上の
-もので、[バス観測口](#バス観測口)を構成します。ライブラリ側が自前のデバイス模型を
-持ち、スケッチがバスに流したものからそれを駆動できます。
+ことを目的にスタブ化しています。ただしデジタルピン、アナログ出力（PWM / DAC）、
+`SPI`、`Wire` はスタブ以上のもので、[バス観測口](#バス観測口)を構成します。
+ライブラリ側が自前のデバイス模型を持ち、スケッチがバスに流したものからそれを
+駆動できます。
 
 | API | 状況 | 出自 | 備考 |
 |-----|------|------|------|
 | `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | ピンの値を保持する。`digitalRead` は直前に書いた値を返し、`INPUT_PULLUP` は HIGH を読む。書き込みは任意のフックへ通知される（[バス観測口](#バス観測口)）。電気的挙動とタイミングは再現しない |
-| `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op |
+| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | `HostArduino::setAnalogValue` / `setAnalogMilliVolts` で差し込んだ値、またはアナログ読み出しフックが計算した値を返す（アナログ側の応答方向）。分解能は記録するだけで適用しない — 差し込んだ値を勝手にスケールするのは基準電圧を捏造することになる |
+| `analogWrite` / `analogWriteFrequency` / `analogWriteResolution` | ✅ | Arduino / ESP32 | LEDC 経由。未 attach のピンは arduino-esp32 と同じくグローバル既定値で初回に attach される。呼び出しはすべてピン・チャンネル・周波数・分解能・デューティ付きで `HostArduino::setAnalogWriteHook` へ通知される |
+| `ledcAttach` / `ledcAttachChannel` / `ledcWrite` / `ledcWriteChannel` / `ledcRead` / `ledcReadFreq` / `ledcChangeFrequency` / `ledcDetach` / `ledcWriteTone` / `ledcWriteNote` / `ledcOutputInvert` / `ledcFade*` | ✅ | ESP32 | ピンごとの状態と同じフック。実機が拒否する呼び出し（未 attach ピンへのデューティ書き込み、二重 attach、20 bit を超える分解能、周波数 0）は同じく拒否し、イベントも出さない。チャンネルは 16 本（classic ESP32 の番号付け）。fade は即座に目標値へ到達し（`max_fade_time_ms` は無視、両端点を通知）。2.x の `ledcSetup` / `ledcAttachPin` は**提供しない** — arduino-esp32 3.x が削除済みで、チャンネル指定の書き込みは `ledcWriteChannel` が担う |
+| `dacWrite` / `dacDisable` | ✅ | ESP32 | チャンネルと周波数を持たない形で同じピンごとの枠に記録されるので、PWM と DAC が 1 本のトレースに乗る。ピンの制限は掛けない（どのピンが DAC かはバリアント固有の情報で、コアは持たない） |
+| `tone` / `noTone` | ✅ | Arduino | LEDC の上に実装。arduino-esp32 と同じく同時に 1 音のみ。`duration` を指定してもブロックしない — 発音と消音を連続して通知するので、実機と共有するスケッチが実時間の待ちなしで同じ呼び出し順を保つ |
+| `analogSetAttenuation` / `analogSetPinAttenuation` | 🟡 | ESP32 | 受理するだけ。設定すべき減衰器が無いので、欲しい読み値を直接差し込む |
+| `analogContinuous*` | 🔲 | ESP32 | 未提供（必要とする具体的なスケッチがまだ無い） |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | `0` を返す |
-| `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
+| `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
 | `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op |
-| `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op スタブで十分 |
-| `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`Wire1` も提供 |
-| `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで取れる。タイミングは再現しない |
+| `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` はライフサイクルフックに届くので、バスの初期化が通信と同じ順序付きトレースに乗る。`Wire1` も提供 |
+| `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで、`begin()` / `end()` / 設定系セッターはライフサイクルフックで取れる。タイミングは再現しない |
 | `Servo` | 🔲 | Arduino | no-op スタブ |
 
 ### ESP-IDF / ベンダー拡張
@@ -141,9 +147,10 @@ ESP32 拡張かを示します。
 
 ```
 tests/
-  runtime/  smoke, timing, print_api, esp_log, gpio_hook, spi_hook,
-            wire_hook, esp_random, esp_timer, freertos_mutex,
-            freertos_notify, freertos_queue, freertos_task
+  runtime/  smoke, timing, print_api, esp_log, gpio_hook, analog_hook,
+            spi_hook, wire_hook, bus_trace, esp_random, esp_timer,
+            freertos_mutex, freertos_notify, freertos_queue,
+            freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
@@ -182,7 +189,7 @@ uv run --env-file .env pytest --profile esp32 interop/
 
 ```text
 スケッチ ──SPI.transfer()──▶ コアの SPI ─────┐
-                                              ├──▶ 観測・応答フック
+スケッチ ──ledcWrite()─────▶ コアの LEDC ────┤──▶ 観測・応答フック
 スケッチ ──digitalWrite()──▶ コアの GPIO ────┘         │
                              （書き込み通知）           ▼  ライブラリ側の模型
                                               例: ST7789 のコマンド解釈
@@ -194,8 +201,9 @@ uv run --env-file .env pytest --profile esp32 interop/
 | バス | 宣言場所 | フック |
 |------|----------|--------|
 | GPIO | `cores/host/HostBus.h`（常に利用可能） | `HostArduino::setPinWriteHook` / `setPinReadHook` / `setPinModeHook` |
-| SPI | 同梱 `SPI` ライブラリ | `SPI.setTransferHook` / `SPI.setTransactionHook` |
-| I²C | 同梱 `Wire` ライブラリ | `Wire.setWriteHook` / `Wire.setReadHook` |
+| アナログ / PWM（`analogWrite`、`ledc*`、`dacWrite`、`tone`） | `cores/host/HostBus.h`（常に利用可能） | `HostArduino::setAnalogWriteHook` / `setAnalogReadHook` |
+| SPI | 同梱 `SPI` ライブラリ | `SPI.setTransferHook` / `SPI.setTransactionHook` / `SPI.setLifecycleHook` |
+| I²C | 同梱 `Wire` ライブラリ | `Wire.setWriteHook` / `Wire.setReadHook` / `Wire.setLifecycleHook` |
 
 ライブラリ側の分岐は `HOST_ARDUINO` で行えます。`platform.txt` が両ボードで常に
 定義しています。
@@ -246,6 +254,61 @@ HostArduino::setPinWriteHook(onPinWrite, &model);
 （`digitalWrite` 276 万回）、フック無しで 1.1 ms、フック有りで 7.2 ms。書き込み経路は
 inline のままで、フックは `std::function` ではなく素の関数ポインタです。
 
+### アナログ / PWM — バックライトの口
+
+`analogWrite`、`ledc*` 一族、`dacWrite`、`tone` はいずれも最終的に 1 本のピンの
+アナログ出力を駆動するもので、すべて同じフックへ通知されます。no-op スタブでも
+表示ドライバはリンクできますが、それだとバックライトの初期化が見えません。パネルの
+立ち上げの中で**順序**が最も重要なのがまさにそこです（暗いまま設定 → 初期化
+シーケンス → 点灯）。
+
+呼び出しごとにスロットを分けず 1 本にしているのは、検証したいものが順序付きの
+シーケンスだからです。1 本のストリームならゴールデンと直接比較できますが、4 本
+だとテスト側が先に時系列へ合成し直す必要があります。イベントは API よりも粗い
+粒度で、「どの綴りで呼ばれたか」ではなく「ピンに何が起きたか」を記録します:
+
+| イベント | 通知元 |
+|----------|--------|
+| `kAnalogAttach` | `ledcAttach`、`ledcAttachChannel`、`analogWrite` / `tone` の暗黙 attach |
+| `kAnalogWrite` | `ledcWrite`、`ledcWriteChannel`、`analogWrite`、`ledcFade*` の両端点 |
+| `kAnalogConfig` | `ledcChangeFrequency`、`ledcOutputInvert`、`analogWriteFrequency`、`analogWriteResolution` |
+| `kAnalogTone` | `ledcWriteTone`、`ledcWriteNote`、`tone` |
+| `kAnalogDetach` | `ledcDetach`、`noTone`、`dacDisable` |
+| `kAnalogDac` | `dacWrite` |
+
+```cpp
+#include <Arduino.h>
+
+void onBacklight(HostArduino::AnalogWriteEvent event, const HostArduino::AnalogOut &out, void *user)
+{
+    // out.pin / out.channel / out.frequency / out.resolution / out.duty
+    static_cast<Trace *>(user)->add(event, out);
+}
+
+HostArduino::setAnalogWriteHook(onBacklight, &trace);
+ledcAttach(PIN_BL, 5000, 8);   // kAnalogAttach, チャンネル 0, 5000 Hz, 8 bit
+ledcWrite(PIN_BL, 0);          // kAnalogWrite, duty 0 — 初期化中は暗いまま
+ledcWrite(PIN_BL, 200);        // kAnalogWrite, duty 200 — ここで点灯
+```
+
+`HostArduino::analogOut(pin)` はフック無しで同じ状態を返します。最終状態だけを
+見たいときはこちらを検証してください。`ledcReadFreq(pin)` は arduino-esp32 に
+忠実で duty が 0 の間は 0 Hz を返すため、設定値が隠れます。
+
+- 実機が拒否する呼び出しは同じく拒否します（未 attach ピンへの duty 書き込み、
+  二重 attach、`HostArduino::kLedcMaxResolution`（20）を超える分解能、周波数 0）。
+  そのときイベントも出さないので、実機がやらなかった作業がトレースに現れません。
+- `ledcAttach` は空いている最小のチャンネルを割り当てます。arduino-esp32 と同じ
+  選び方なので、トレースに出るチャンネルは実機で割り当てられるものと一致します。
+- 応答方向: `HostArduino::setAnalogValue(pin, raw)` と
+  `setAnalogMilliVolts(pin, mv)` が `analogRead` / `analogReadMilliVolts` の
+  返す値になります。読み出し時に計算したい模型向けに `setAnalogReadHook` も
+  あります。2 つの値を別々に差し込む形にしているのは意図的で、一方から他方を
+  導くには減衰器と Vref の模型が必要になり、コアはそれを持ちません。
+- 再現しないもの: 波形、タイミング、タイマの共有。ピンには何も出力されず、
+  `digitalRead` が PWM 波形を見ることはなく、duty 128/255 で何かが半分明るく
+  なることもありません。fade は即座に目標値へ到達します。
+
 ### SPI
 
 `SPI.transfer()` は転送する 1 バイトごとにフックを呼び、その戻り値をそのまま返します。
@@ -278,6 +341,12 @@ SPI.setTransactionHook(onTransaction);
 バイトには適用しません（並べるべき実際の線が無いため）。クロックは記録するだけで、
 待ちには反映しません。
 
+`SPI.setLifecycleHook` はバス自体を見ます。`SPIClass::kBegin`、`kEnd`、そして
+`setFrequency` / `setBitOrder` / `setDataMode` / `setClockDivider` / `setHwCs`
+（バスを専有するドライバが transaction を使わずに設定する綴り）の `kConfig` です。
+ピンは元から後から読めましたが、リセットパルスやバックライトに対して**いつ**バスが
+立ち上がったのかを言えるのはフックだけです。
+
 ### I²C
 
 `Wire` は初期化に成功し、バス上には何も居ません（空きアドレスに対してスキャン
@@ -303,12 +372,45 @@ Wire.setWriteHook(onWrite, &sensor);
 Wire.setReadHook(onRead, &sensor);
 ```
 
+`Wire.setLifecycleHook` はバス自体を見ます。`TwoWire::kBegin`、`kEnd`、
+`kSetPins`、`kSetClock`、`kSetTimeout` です。`sda()` / `scl()` / `getClock()` は
+元から後から読めましたが、ドライバが行った他のすべてに対して**いつ**バスを
+立ち上げたのかを言えるのはフックだけです。フックは `TwoWire` ごと受け取るので、
+1 つの模型が両方を見る場合は `busNum()` で `Wire` と `Wire1` を区別できます。
+
 再現しないもの: クロックストレッチ、アービトレーション、バスのタイミング、
 スレーブ動作（`onReceive` / `onRequest` は受け付けるが呼ばれない）。
 
+### ゴールデントレース
+
+すべてのフックを登録して 1 本のバッファへ 1 イベント 1 行で追記すると、ドライバの
+立ち上げ全体（I²C 起動 → リセットパルス → SPI 起動 → バックライトを暗く設定 →
+コマンド送出 → バックライト点灯 → タッチ探索）が順序付きの記録になり、ゴールデン
+リストと 1 行ずつ比較できます:
+
+```text
+i2c.begin sda=21 scl=22 clock=100000
+gpio.mode pin=33 mode=1
+gpio.write pin=33 value=0
+gpio.write pin=33 value=1
+spi.begin sck=18 mosi=23 cs=5
+pwm.attach pin=38 ch=0 f=5000 r=8
+pwm.write pin=38 duty=0
+spi.txn active=1 clock=40000000 mode=0
+spi.byte 01 cs=0
+...
+pwm.write pin=38 duty=200
+```
+
+1 つの手順が前後の手順に対してずれた場合、最終状態の検証はすべて通ってもこの比較は
+失敗します。表示ドライバの不具合として実際にありがちで、最終状態のテストでは
+取り逃がす種類のものです。フックの中から直接 print せず、記録して最後に一度出力
+してください。そうすればスケッチが `Serial` へ書く他の出力からトレースが独立します。
+実例は `tests/runtime/bus_trace` です。
+
 ### スレッドと、意図的に用意しないもの
 
-フックはバスを呼んだスレッド上で同期的に実行され、ピンの状態はロック無しの素の配列
+フックはバスを呼んだスレッド上で同期的に実行され、状態はロック無しの素の配列
 です。`mode=lgfx`（および `display` ボード）では `setup()` / `loop()` がワーカー
 スレッドで動き、FreeRTOS タスクは `std::thread` なので、フックの登録はタスク起動前に
 行い、1 つのバスは 1 スレッドから使ってください。
@@ -323,7 +425,8 @@ Wire.setReadHook(onRead, &sensor);
   模型は実行ファイル隣に PPM / PNG を書くか、画素を `LGFX_Sprite` へ流し込んでください。
 
 実例: `libraries/Host/examples/Plane/BusObserve`、および
-`tests/runtime/gpio_hook`、`tests/runtime/spi_hook`、`tests/runtime/wire_hook`。
+`tests/runtime/gpio_hook`、`tests/runtime/analog_hook`、`tests/runtime/spi_hook`、
+`tests/runtime/wire_hook`、`tests/runtime/bus_trace`。
 
 ## ボード
 
@@ -399,7 +502,7 @@ SDL2 画面とは別にログコンソールへ表示されます。
 - `platform.txt` / `boards.txt`: Arduino platform のメタデータ。リリース ZIP に含めます。
 - `cores/host/Arduino.h`: Arduino スケッチ側に見せる最小 API。
 - `cores/host/HostRuntime.{h,cpp}`: ホスト実行ランタイム、TCP 経由の `Serial`、プロセス起動、接続情報ファイル処理。
-- `cores/host/HostBus.{h,cpp}`: GPIO のピン状態とバス観測フック（[バス観測口](#バス観測口)）。
+- `cores/host/HostBus.{h,cpp}`: GPIO のピン状態、アナログ出力（PWM / DAC）の状態、バス観測フック（[バス観測口](#バス観測口)）。
 - `libraries/SPI/`、`libraries/Wire/`: 同梱の `SPI` / `Wire`。同じ観測口の SPI 半分と I²C 半分。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
 - `scripts/bump_version.py`: `platform.txt` の `version=` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョンを更新します。

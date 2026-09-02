@@ -14,10 +14,18 @@
 // returns 0. That is the honest answer for a host with no hardware, and
 // it is what a scan loop expects to see for an empty address.
 //
-// The hooks are transaction-granular, not byte-granular like SPI's. That
-// is the level an I2C device model actually works at: a write transaction
-// is an address plus a payload plus a stop condition, and a read
-// transaction is a request for N bytes that the device answers as a
+// A third hook covers the bus's own lifecycle — `begin()`, `end()`, and
+// the configuration setters. The pins and the clock were always readable
+// through `sda()` / `scl()` / `getClock()`, but reading them afterwards
+// cannot tell you *when* the bus was brought up relative to everything
+// else a driver did. That ordering is the thing a test compares against a
+// golden trace: an ST7789 reset before or after `Wire.begin()` is the
+// difference between a driver that works and one that does not.
+//
+// The transaction hooks are transaction-granular, not byte-granular like
+// SPI's. That is the level an I2C device model actually works at: a write
+// transaction is an address plus a payload plus a stop condition, and a
+// read transaction is a request for N bytes that the device answers as a
 // block. Register a device model like this:
 //
 //   static uint8_t onWrite(uint8_t addr, const uint8_t *data, size_t len,
@@ -58,6 +66,24 @@ public:
     // reports back.
     using ReadHook = size_t (*)(uint8_t address, uint8_t *data, size_t len, bool stop, void *user);
 
+    // Bus setup, in the order the sketch performed it. `kBegin` covers
+    // both the master and the slave overload — the slave role is not
+    // modelled, so there is nothing to tell the two apart afterwards.
+    enum LifecycleEvent : uint8_t {
+        kBegin = 0,
+        kEnd,
+        kSetPins,
+        kSetClock,
+        kSetTimeout,
+    };
+
+    // Called after the change has been applied, so `wire` already reports
+    // the new state. The whole object is passed rather than the changed
+    // field: `busNum()` is what tells `Wire` from `Wire1` when one model
+    // watches both, and a lifecycle trace usually wants to print the pins
+    // and the clock together anyway.
+    using LifecycleHook = void (*)(LifecycleEvent event, const TwoWire &wire, void *user);
+
     explicit TwoWire(uint8_t bus_num = 0) : _bus(bus_num) {}
 
     // --- Arduino / ESP32 surface -------------------------------------
@@ -72,7 +98,7 @@ public:
     bool setPins(int sda, int scl);
     bool setClock(uint32_t frequency);
     uint32_t getClock() const { return _frequency; }
-    void setTimeOut(uint16_t timeout_ms) { _timeout = timeout_ms; }
+    void setTimeOut(uint16_t timeout_ms);
     uint16_t getTimeOut() const { return _timeout; }
     void setBufferSize(size_t) {}
 
@@ -130,12 +156,20 @@ public:
         _readHookUser = user;
     }
 
+    void setLifecycleHook(LifecycleHook hook, void *user = nullptr)
+    {
+        _lifecycleHook = hook;
+        _lifecycleHookUser = user;
+    }
+
     void clearHooks()
     {
         _writeHook = nullptr;
         _writeHookUser = nullptr;
         _readHook = nullptr;
         _readHookUser = nullptr;
+        _lifecycleHook = nullptr;
+        _lifecycleHookUser = nullptr;
     }
 
     bool begun() const { return _begun; }
@@ -177,6 +211,15 @@ private:
     void *_writeHookUser = nullptr;
     ReadHook _readHook = nullptr;
     void *_readHookUser = nullptr;
+    LifecycleHook _lifecycleHook = nullptr;
+    void *_lifecycleHookUser = nullptr;
+
+    void reportLifecycle(LifecycleEvent event)
+    {
+        if (_lifecycleHook) {
+            _lifecycleHook(event, *this, _lifecycleHookUser);
+        }
+    }
 
     void (*_onReceive)(int) = nullptr;
     void (*_onRequest)(void) = nullptr;

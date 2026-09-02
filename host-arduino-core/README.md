@@ -89,20 +89,26 @@ Legend:
 ### Hardware I/O
 
 Most of these are stubbed so that real-hardware sketches at least link.
-The digital pins, `SPI`, and `Wire` are more than stubs: they form the
-[bus observation port](#bus-observation-port), which lets a library keep
-its own device model and drive it from what the sketch puts on the bus.
+The digital pins, the analog output (PWM / DAC), `SPI`, and `Wire` are
+more than stubs: they form the [bus observation port](#bus-observation-port),
+which lets a library keep its own device model and drive it from what the
+sketch puts on the bus.
 
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
 | `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | pin state is held: `digitalRead` returns the last value written, `INPUT_PULLUP` reads HIGH. Every write is announced to an optional hook — see [Bus Observation Port](#bus-observation-port). No electrical behavior, no timing |
-| `analogRead` / `analogWrite` / `analogReadResolution` / `analogSetAttenuation` | 🟡 | Arduino / ESP32 | no-op stubs |
+| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | reads what `HostArduino::setAnalogValue` / `setAnalogMilliVolts` injected, or what an analog read hook computes — the response direction of the [analog half](#bus-observation-port) of the port. Resolution is recorded, never applied: scaling the injected value would mean inventing a reference |
+| `analogWrite` / `analogWriteFrequency` / `analogWriteResolution` | ✅ | Arduino / ESP32 | routed through LEDC, so an unattached pin is attached with the global defaults on first use exactly as arduino-esp32 does. Every call is announced to `HostArduino::setAnalogWriteHook` with the pin, channel, frequency, resolution, and duty |
+| `ledcAttach` / `ledcAttachChannel` / `ledcWrite` / `ledcWriteChannel` / `ledcRead` / `ledcReadFreq` / `ledcChangeFrequency` / `ledcDetach` / `ledcWriteTone` / `ledcWriteNote` / `ledcOutputInvert` / `ledcFade*` | ✅ | ESP32 | per-pin state plus the same hook. Refusals match silicon (duty on an unattached pin, a re-attach, a resolution wider than 20 bits, a zero frequency) and report no event. 16 channels, classic-ESP32 numbering. Fades land on the target immediately — `max_fade_time_ms` is ignored and both endpoints are reported. The 2.x `ledcSetup` / `ledcAttachPin` spellings are **not** provided: arduino-esp32 3.x removed them, and `ledcWriteChannel` covers the channel-based write |
+| `dacWrite` / `dacDisable` | ✅ | ESP32 | tracked in the same per-pin slot with no channel and no frequency, so one trace covers PWM and DAC. Any pin is accepted — which pins a board wires to a DAC is a variant detail the core does not carry |
+| `tone` / `noTone` | ✅ | Arduino | on top of LEDC, one tone at a time as in arduino-esp32. A non-zero `duration` does not block: the tone and the silence are reported back to back, so a sketch shared with real silicon keeps the same call sequence without a wall-clock wait |
+| `analogSetAttenuation` / `analogSetPinAttenuation` | 🟡 | ESP32 | accepted, no effect — there is no attenuator to configure. Inject the reading you want instead |
+| `analogContinuous*` | 🔲 | ESP32 | not provided; no concrete sketch has needed it |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | returns `0` |
-| `tone` / `noTone` / `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
+| `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
 | `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op stubs |
-| `dacWrite` / `ledcWrite` / `ledcAttach` / `ledcSetup` | 🔲 | ESP32 | no-op stubs would be sufficient |
-| `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `Wire1` also provided |
-| `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook. Timing is not modelled |
+| `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` reach a lifecycle hook, so bus setup lands in the same ordered trace as the traffic. `Wire1` also provided |
+| `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook, and `begin()` / `end()` / the configuration setters to a lifecycle hook. Timing is not modelled |
 | `Servo` | 🔲 | Arduino | no-op stub |
 
 ### ESP-IDF / vendor extensions
@@ -142,9 +148,10 @@ behavioral coverage:
 
 ```
 tests/
-  runtime/  smoke, timing, print_api, esp_log, gpio_hook, spi_hook,
-            wire_hook, esp_random, esp_timer, freertos_mutex,
-            freertos_notify, freertos_queue, freertos_task
+  runtime/  smoke, timing, print_api, esp_log, gpio_hook, analog_hook,
+            spi_hook, wire_hook, bus_trace, esp_random, esp_timer,
+            freertos_mutex, freertos_notify, freertos_queue,
+            freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
@@ -185,7 +192,7 @@ to answer on. The device model stays on the library side.
 
 ```text
 sketch ──SPI.transfer()──▶ core SPI ─────┐
-                                         ├──▶ observation / response hook
+sketch ──ledcWrite()─────▶ core LEDC ────┤──▶ observation / response hook
 sketch ──digitalWrite()──▶ core GPIO ────┘         │
                         (write announced)          ▼   library-side model
                                           e.g. an ST7789 decoder
@@ -197,8 +204,9 @@ sketch ──digitalWrite()──▶ core GPIO ────┘         │
 | Bus | Declared in | Hooks |
 |-----|-------------|-------|
 | GPIO | `cores/host/HostBus.h` (always available) | `HostArduino::setPinWriteHook` / `setPinReadHook` / `setPinModeHook` |
-| SPI | bundled `SPI` library | `SPI.setTransferHook` / `SPI.setTransactionHook` |
-| I²C | bundled `Wire` library | `Wire.setWriteHook` / `Wire.setReadHook` |
+| Analog / PWM (`analogWrite`, `ledc*`, `dacWrite`, `tone`) | `cores/host/HostBus.h` (always available) | `HostArduino::setAnalogWriteHook` / `setAnalogReadHook` |
+| SPI | bundled `SPI` library | `SPI.setTransferHook` / `SPI.setTransactionHook` / `SPI.setLifecycleHook` |
+| I²C | bundled `Wire` library | `Wire.setWriteHook` / `Wire.setReadHook` / `Wire.setLifecycleHook` |
 
 Guard library-side code with `HOST_ARDUINO`, which `platform.txt` always
 defines for both boards.
@@ -253,6 +261,66 @@ Cost, measured on one 240x240 16bpp frame pushed out over bit-banged SPI
 The write path is inline and the hook is a plain function pointer, not a
 `std::function`.
 
+### Analog / PWM — the backlight half
+
+`analogWrite`, the `ledc*` family, `dacWrite`, and `tone` all end up driving
+one pin's analog output, and all of them report to one hook. A no-op stub
+would let a display driver link; it would also make its backlight
+initialization invisible, which is the one part of a panel bring-up whose
+*ordering* matters most — configured dark, init sequence, then lit.
+
+One hook rather than one slot per call, because what a test asserts is an
+ordered sequence: a single stream can be compared against a golden list,
+four streams would have to be re-interleaved first. The events are coarser
+than the API, so a trace records what happened to the pin rather than which
+spelling the caller reached for:
+
+| Event | Reported by |
+|-------|-------------|
+| `kAnalogAttach` | `ledcAttach`, `ledcAttachChannel`, and the implicit attach inside `analogWrite` / `tone` |
+| `kAnalogWrite` | `ledcWrite`, `ledcWriteChannel`, `analogWrite`, and both endpoints of `ledcFade*` |
+| `kAnalogConfig` | `ledcChangeFrequency`, `ledcOutputInvert`, `analogWriteFrequency`, `analogWriteResolution` |
+| `kAnalogTone` | `ledcWriteTone`, `ledcWriteNote`, `tone` |
+| `kAnalogDetach` | `ledcDetach`, `noTone`, `dacDisable` |
+| `kAnalogDac` | `dacWrite` |
+
+```cpp
+#include <Arduino.h>
+
+void onBacklight(HostArduino::AnalogWriteEvent event, const HostArduino::AnalogOut &out, void *user)
+{
+    // out.pin / out.channel / out.frequency / out.resolution / out.duty
+    static_cast<Trace *>(user)->add(event, out);
+}
+
+HostArduino::setAnalogWriteHook(onBacklight, &trace);
+ledcAttach(PIN_BL, 5000, 8);   // kAnalogAttach, channel 0, 5000 Hz, 8 bits
+ledcWrite(PIN_BL, 0);          // kAnalogWrite, duty 0 — dark during init
+ledcWrite(PIN_BL, 200);        // kAnalogWrite, duty 200 — and now lit
+```
+
+`HostArduino::analogOut(pin)` reports the same state without a hook, which
+is what to assert against when only the end state matters. Prefer it over
+`ledcReadFreq(pin)`: that one is faithful to arduino-esp32 and reads 0 Hz
+while the duty is 0, which hides what was configured.
+
+- A call silicon would refuse is refused — a duty write to an unattached
+  pin, a re-attach, a resolution wider than `HostArduino::kLedcMaxResolution`
+  (20), a zero frequency — and reports no event, so a trace never shows work
+  a real board would not have done.
+- `ledcAttach` hands out the lowest free channel, the same one arduino-esp32
+  would have picked, so the channel in the trace is the channel the sketch
+  would have got.
+- The read direction: `HostArduino::setAnalogValue(pin, raw)` and
+  `setAnalogMilliVolts(pin, mv)` inject what `analogRead` /
+  `analogReadMilliVolts` return, and `setAnalogReadHook` is there for a
+  reading a model has to compute. The two quantities are injected
+  separately on purpose — deriving one from the other needs an attenuation
+  and Vref model the core does not have.
+- Not modelled: waveforms, timing, timer sharing. Nothing is emitted on the
+  pin, `digitalRead` does not see a PWM signal, and a duty of 128/255 does
+  not make anything half-bright. Fades land on the target immediately.
+
 ### SPI
 
 `SPI.transfer()` hands every byte to the transfer hook and returns what the
@@ -286,6 +354,13 @@ let a test assert the wiring and the traffic without a hook at all. The hook is 
 through `SPISettings`, never applied to the byte, because there is no wire
 to serialize onto. Clock rates are recorded, never honored.
 
+`SPI.setLifecycleHook` covers the bus itself — `SPIClass::kBegin`,
+`kEnd`, and `kConfig` for `setFrequency` / `setBitOrder` / `setDataMode` /
+`setClockDivider` / `setHwCs`, the transaction-free spelling a driver uses
+when it owns the bus outright. The pins were always readable afterwards;
+the hook is what says *when* the bus came up relative to the reset pulse
+and the backlight next to it.
+
 ### I²C
 
 `Wire` initializes successfully and finds nothing on the bus — the shape a
@@ -312,8 +387,43 @@ Wire.setWriteHook(onWrite, &sensor);
 Wire.setReadHook(onRead, &sensor);
 ```
 
+`Wire.setLifecycleHook` covers the bus itself — `TwoWire::kBegin`, `kEnd`,
+`kSetPins`, `kSetClock`, and `kSetTimeout`. `sda()` / `scl()` / `getClock()`
+could always be read afterwards, but only the hook says *when* the bus was
+brought up relative to everything else a driver did. The hook receives the
+whole `TwoWire`, so `busNum()` tells `Wire` from `Wire1` when one model
+watches both.
+
 Not modelled: clock stretching, arbitration, bus timing, and the slave role
 (`onReceive` / `onRequest` are accepted and never called).
+
+### Golden traces
+
+Registering every hook and appending one line per event to a single buffer
+gives an ordered record of a driver's whole startup — I²C up, reset pulse,
+SPI up, backlight configured dark, commands, backlight lit, touch probed —
+that a test can compare against a golden list line for line:
+
+```text
+i2c.begin sda=21 scl=22 clock=100000
+gpio.mode pin=33 mode=1
+gpio.write pin=33 value=0
+gpio.write pin=33 value=1
+spi.begin sck=18 mosi=23 cs=5
+pwm.attach pin=38 ch=0 f=5000 r=8
+pwm.write pin=38 duty=0
+spi.txn active=1 clock=40000000 mode=0
+spi.byte 01 cs=0
+...
+pwm.write pin=38 duty=200
+```
+
+A step moving relative to its neighbours fails that comparison even though
+every end-state assertion still passes, which is exactly the class of
+display-driver bug an end-state test misses. Record from the hooks and print
+once at the end rather than printing from inside them, so the trace stays
+independent of whatever else the sketch writes to `Serial`.
+`tests/runtime/bus_trace` is the worked example.
 
 ### Threading, and what is deliberately absent
 
@@ -334,8 +444,9 @@ one bus to one thread.
   `LGFX_Sprite`.
 
 Worked examples: `libraries/Host/examples/Plane/BusObserve`, and the tests
-in `tests/runtime/gpio_hook`, `tests/runtime/spi_hook`, and
-`tests/runtime/wire_hook`.
+in `tests/runtime/gpio_hook`, `tests/runtime/analog_hook`,
+`tests/runtime/spi_hook`, `tests/runtime/wire_hook`, and
+`tests/runtime/bus_trace`.
 
 ## Boards
 
@@ -405,7 +516,7 @@ and log console separate.
 - `platform.txt` / `boards.txt`: Arduino platform metadata copied into the release ZIP.
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
-- `cores/host/HostBus.{h,cpp}`: GPIO pin state and the bus observation hooks (see [Bus Observation Port](#bus-observation-port)).
+- `cores/host/HostBus.{h,cpp}`: GPIO pin state, analog output (PWM / DAC) state, and the bus observation hooks (see [Bus Observation Port](#bus-observation-port)).
 - `libraries/SPI/`, `libraries/Wire/`: bundled `SPI` / `Wire` with the SPI and I²C halves of the same port.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
 - `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.
