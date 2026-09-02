@@ -6,11 +6,15 @@
 // device model and drive it from what goes onto the bus.
 //
 // This example puts the same tiny ST7789-flavored model behind two
-// transports and prints what it decoded:
+// transports and prints what it decoded, then shows the piece a display
+// driver needs on top of the pixels:
 //
 //   1. bit-banged soft SPI — only digitalWrite / digitalRead, the path a
 //      board without a hardware SPI peripheral has to take
 //   2. the SPI class — one hook per transferred byte, plus the settings
+//   3. the backlight and the bus lifecycle — the analog / PWM half of the
+//      port plus SPI.setLifecycleHook, so bringing the bus up and lighting
+//      the panel land in the same ordered stream as the bytes
 //
 // Run it with:  arduino-cli compile -b lang-ship:host:host . && arduino-cli upload -b lang-ship:host:host .
 
@@ -24,6 +28,7 @@ constexpr int PIN_MISO = 19;
 constexpr int PIN_MOSI = 23;
 constexpr int PIN_DC = 5;
 constexpr int PIN_CS = 15;
+constexpr int PIN_BACKLIGHT = 38;
 
 // Stand-in for the panel model a display library would own. It knows the
 // protocol (DC low means command); the core knows only the pins.
@@ -129,6 +134,51 @@ void softData(uint8_t value)
     softSpiWrite(value);
 }
 
+// The backlight half. A no-op `analogWrite` would let this sketch build
+// and leave a test with nothing to look at; the hook makes the brightness
+// ramp as visible as the pixel bytes.
+const char *analogEventName(HostArduino::AnalogWriteEvent event)
+{
+    switch (event) {
+    case HostArduino::kAnalogAttach:
+        return "attach";
+    case HostArduino::kAnalogWrite:
+        return "write";
+    case HostArduino::kAnalogConfig:
+        return "config";
+    case HostArduino::kAnalogTone:
+        return "tone";
+    case HostArduino::kAnalogDetach:
+        return "detach";
+    case HostArduino::kAnalogDac:
+        return "dac";
+    }
+    return "?";
+}
+
+void onBacklight(HostArduino::AnalogWriteEvent event, const HostArduino::AnalogOut &out, void *user)
+{
+    (void)user;
+    Serial.printf("  backlight %s: pin %u, channel %u, %u Hz, %u bits, duty %u\n",
+                  analogEventName(event), out.pin, out.channel, out.frequency, out.resolution, out.duty);
+}
+
+void onSpiLifecycle(SPIClass::LifecycleEvent event, const SPIClass &spi, void *user)
+{
+    (void)user;
+    switch (event) {
+    case SPIClass::kBegin:
+        Serial.printf("  spi begin: sck %d, mosi %d, cs %d\n", spi.sck(), spi.mosi(), spi.ss());
+        break;
+    case SPIClass::kEnd:
+        Serial.println("  spi end");
+        break;
+    case SPIClass::kConfig:
+        Serial.printf("  spi config: %u Hz, mode %u\n", spi.settings().clock(), spi.settings().dataMode());
+        break;
+    }
+}
+
 } // namespace
 
 void setup()
@@ -156,6 +206,7 @@ void setup()
 
     // --- 2. the SPI class ------------------------------------------
     Serial.println("hardware SPI (SPI class):");
+    SPI.setLifecycleHook(onSpiLifecycle);
     SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_CS);
     SPI.setTransferHook(onSpiByte, &model);
     SPI.setTransactionHook(onSpiTransaction);
@@ -171,6 +222,20 @@ void setup()
     SPI.endTransaction();
 
     Serial.printf("bytes transferred: %u\n", SPI.transferCount());
+
+    // --- 3. the backlight ------------------------------------------
+    //
+    // A driver configures the backlight dark, pushes its init sequence,
+    // and only then brings the brightness up — so a half-drawn panel is
+    // never visible. That ordering is what a test asserts, and it is only
+    // assertable because the calls are announced rather than dropped.
+    Serial.println("backlight (analog / PWM half):");
+    HostArduino::setAnalogWriteHook(onBacklight);
+    ledcAttach(PIN_BACKLIGHT, 5000, 8);
+    ledcWrite(PIN_BACKLIGHT, 0);
+    ledcWrite(PIN_BACKLIGHT, 200);
+    HostArduino::clearAnalogHooks();
+
     Serial.println("BusObserve done");
 }
 

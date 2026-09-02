@@ -6,6 +6,11 @@
 // nothing. Registering the transaction hooks puts a library-side device
 // model on the bus — here a stand-in sensor at 0x68 that remembers the
 // register it was pointed at and answers reads from it.
+//
+// The lifecycle hook is the third slot. `sda()` / `scl()` / `getClock()`
+// could always be read afterwards, but only the hook says *when* the bus
+// was brought up relative to everything else a driver did — the ordering
+// a test compares against a golden trace.
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -22,6 +27,45 @@ struct SensorModel {
 };
 
 SensorModel model;
+
+// Bus setup, recorded as one string so a test can compare the sequence
+// rather than each event separately.
+struct LifecycleLog {
+    char text[64] = {0};
+    uint8_t count = 0;
+
+    void add(const char *name)
+    {
+        const size_t used = strlen(text);
+        snprintf(text + used, sizeof(text) - used, "%s%s", used ? "," : "", name);
+        ++count;
+    }
+};
+
+LifecycleLog lifecycle;
+
+void onLifecycle(TwoWire::LifecycleEvent event, const TwoWire &wire, void *user)
+{
+    LifecycleLog *log = static_cast<LifecycleLog *>(user);
+    (void)wire;
+    switch (event) {
+    case TwoWire::kBegin:
+        log->add("begin");
+        break;
+    case TwoWire::kEnd:
+        log->add("end");
+        break;
+    case TwoWire::kSetPins:
+        log->add("pins");
+        break;
+    case TwoWire::kSetClock:
+        log->add("clock");
+        break;
+    case TwoWire::kSetTimeout:
+        log->add("timeout");
+        break;
+    }
+}
 
 uint8_t onWrite(uint8_t address, const uint8_t *data, size_t len, bool stop, void *user)
 {
@@ -69,6 +113,7 @@ void setup()
     Serial.begin(115200);
     Serial.println("TEST start wire_hook");
 
+    Wire.setLifecycleHook(onLifecycle, &lifecycle);
     const bool begun = Wire.begin(21, 22, 400000);
     Serial.printf("begin=%d sda=%d scl=%d clock=%u\n", begun ? 1 : 0, Wire.sda(), Wire.scl(),
                   Wire.getClock());
@@ -145,6 +190,22 @@ void setup()
     const uint8_t cleared_status = Wire.endTransmission();
     const size_t cleared_read = Wire.requestFrom((uint16_t)SENSOR_ADDR, (size_t)1, true);
     Serial.printf("cleared: status=%u read=%u\n", cleared_status, (unsigned)cleared_read);
+
+    // clearHooks() releases the lifecycle slot along with the transaction
+    // ones, so bus setup stops being reported too.
+    const uint8_t before_clear = lifecycle.count;
+    Wire.setClock(100000);
+    Serial.printf("lifecycle: cleared_delta=%u\n", lifecycle.count - before_clear);
+
+    // Re-registering picks the stream back up. The setters and end() land
+    // on the same stream `begin()` did, in call order.
+    Wire.setLifecycleHook(onLifecycle, &lifecycle);
+    Wire.setPins(1, 2);
+    Wire.setTimeOut(25);
+    Wire.end();
+    Serial.printf("lifecycle: %s\n", lifecycle.text);
+    Serial.printf("teardown: begun=%d sda=%d scl=%d clock=%u timeout=%u\n", Wire.begun() ? 1 : 0,
+                  Wire.sda(), Wire.scl(), Wire.getClock(), Wire.getTimeOut());
 
     // Wire1 exists for ESP32 sketches and is a separate bus.
     const bool wire1_begun = Wire1.begin();

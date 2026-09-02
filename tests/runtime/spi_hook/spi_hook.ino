@@ -6,6 +6,11 @@
 // the conversation and answer on MISO. The transaction hook exposes
 // SPISettings as the sketch passed them, which is how a test asserts the
 // bus is being driven at the clock / bit order / mode the device wants.
+//
+// The lifecycle hook is the third slot. `sck()` / `mosi()` / `ss()` could
+// always be read afterwards, but only the hook says *when* the bus came up
+// relative to the reset pulse and the backlight next to it — the ordering
+// a test compares against a golden trace.
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -29,6 +34,39 @@ struct DeviceModel {
 };
 
 DeviceModel model;
+
+// Bus setup, recorded as one string so a test can compare the sequence
+// rather than each event separately.
+struct LifecycleLog {
+    char text[64] = {0};
+    uint8_t count = 0;
+
+    void add(const char *name)
+    {
+        const size_t used = strlen(text);
+        snprintf(text + used, sizeof(text) - used, "%s%s", used ? "," : "", name);
+        ++count;
+    }
+};
+
+LifecycleLog lifecycle;
+
+void onLifecycle(SPIClass::LifecycleEvent event, const SPIClass &spi, void *user)
+{
+    LifecycleLog *log = static_cast<LifecycleLog *>(user);
+    (void)spi;
+    switch (event) {
+    case SPIClass::kBegin:
+        log->add("begin");
+        break;
+    case SPIClass::kEnd:
+        log->add("end");
+        break;
+    case SPIClass::kConfig:
+        log->add("config");
+        break;
+    }
+}
 
 uint8_t onTransfer(uint8_t out, void *user)
 {
@@ -66,6 +104,7 @@ void setup()
     Serial.begin(115200);
     Serial.println("TEST start spi_hook");
 
+    SPI.setLifecycleHook(onLifecycle, &lifecycle);
     SPI.begin(PIN_SCK, PIN_MISO, PIN_MOSI, PIN_SS);
     Serial.printf("pins: sck=%d miso=%d mosi=%d ss=%d begun=%d\n", SPI.sck(), SPI.miso(), SPI.mosi(),
                   SPI.ss(), SPI.begun() ? 1 : 0);
@@ -117,10 +156,29 @@ void setup()
     Serial.printf("second: clock=%u order=%u mode=%u\n", model.clock, model.bit_order, model.data_mode);
     SPI.endTransaction();
 
+    // The transaction-free spelling: a driver that owns the bus outright
+    // sets the clock and mode directly, and those land on the lifecycle
+    // stream instead of the transaction one.
+    SPI.setFrequency(8000000);
+    SPI.setDataMode(SPI_MODE2);
+    SPI.setHwCs(true);
+    Serial.printf("config: clock=%u mode=%u hwcs=%d\n", SPI.settings().clock(), SPI.settings().dataMode(),
+                  SPI.hwCs() ? 1 : 0);
+
     SPI.clearHooks();
     Serial.printf("cleared: read=%02X\n", SPI.transfer(0x11));
 
+    // clearHooks() releases the lifecycle slot too, so bus setup stops
+    // being reported along with the traffic.
+    const uint8_t before_clear = lifecycle.count;
+    SPI.setFrequency(1000000);
+    Serial.printf("lifecycle: cleared_delta=%u\n", lifecycle.count - before_clear);
+
+    // Re-registering picks the stream back up, so end() is recorded on
+    // the same stream begin() was.
+    SPI.setLifecycleHook(onLifecycle, &lifecycle);
     SPI.end();
+    Serial.printf("lifecycle: %s\n", lifecycle.text);
     Serial.printf("ended: begun=%d\n", SPI.begun() ? 1 : 0);
 
     Serial.println("TEST done");

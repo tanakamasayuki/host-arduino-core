@@ -2,8 +2,9 @@
 
 Covers the default "init succeeds, no device present" shape, the
 transaction-level write / read hooks a device model registers, an address
-scan finding exactly the modelled device, transmit-buffer overflow, and
-unregistering.
+scan finding exactly the modelled device, transmit-buffer overflow, the
+lifecycle hook that puts `begin()` / `end()` / the configuration setters
+into an ordered trace, and unregistering.
 """
 
 
@@ -39,6 +40,16 @@ def test_wire_hook(dut):
     dut.expect("counts: writes=123 reads=2", timeout=10)
 
     dut.expect("cleared: status=2 read=0", timeout=10)
+
+    # clearHooks() released the lifecycle slot along with the transaction
+    # ones, so the setClock right after it was not reported.
+    dut.expect("lifecycle: cleared_delta=0", timeout=10)
+
+    # Re-registered, the setters and end() land on the stream begin() did,
+    # in call order — the sequence a golden trace compares against.
+    dut.expect("lifecycle: begin,pins,timeout,end", timeout=10)
+    dut.expect("teardown: begun=0 sda=1 scl=2 clock=100000 timeout=25", timeout=10)
+
     dut.expect("wire1: begin=1 bus=1", timeout=10)
 
     dut.expect("TEST done", timeout=10)

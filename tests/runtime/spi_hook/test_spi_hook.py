@@ -1,8 +1,9 @@
 """Tests for the SPI half of the bus observation port (bundled SPI library).
 
 Covers the transfer hook (bytes out, MISO answer back), the transaction
-hook exposing SPISettings, the recorded pins / byte count, and the
-no-device default of an idle bus reading 0xFF.
+hook exposing SPISettings, the lifecycle hook that puts `begin()` /
+`end()` / the configuration setters into an ordered trace, the recorded
+pins / byte count, and the no-device default of an idle bus reading 0xFF.
 """
 
 
@@ -37,7 +38,18 @@ def test_spi_hook(dut):
     dut.expect("count=8", timeout=10)
 
     dut.expect("second: clock=1000000 order=0 mode=3", timeout=10)
+
+    # The transaction-free spelling a driver uses when it owns the bus.
+    dut.expect("config: clock=8000000 mode=2 hwcs=1", timeout=10)
+
     dut.expect("cleared: read=FF", timeout=10)
+
+    # clearHooks() released the lifecycle slot too, so the setFrequency
+    # right after it was not reported.
+    dut.expect("lifecycle: cleared_delta=0", timeout=10)
+
+    # One ordered stream: begin, the three configuration setters, end.
+    dut.expect("lifecycle: begin,config,config,config,end", timeout=10)
     dut.expect("ended: begun=0", timeout=10)
 
     dut.expect("TEST done", timeout=10)

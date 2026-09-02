@@ -11,6 +11,7 @@ bool TwoWire::begin(int sda, int scl, uint32_t frequency)
         _frequency = frequency;
     }
     _begun = true;
+    reportLifecycle(kBegin);
     return true;
 }
 
@@ -29,6 +30,7 @@ bool TwoWire::end()
     _txLength = 0;
     _rxLength = 0;
     _rxIndex = 0;
+    reportLifecycle(kEnd);
     return true;
 }
 
@@ -36,13 +38,21 @@ bool TwoWire::setPins(int sda, int scl)
 {
     _sda = sda;
     _scl = scl;
+    reportLifecycle(kSetPins);
     return true;
 }
 
 bool TwoWire::setClock(uint32_t frequency)
 {
     _frequency = frequency;
+    reportLifecycle(kSetClock);
     return true;
+}
+
+void TwoWire::setTimeOut(uint16_t timeout_ms)
+{
+    _timeout = timeout_ms;
+    reportLifecycle(kSetTimeout);
 }
 
 void TwoWire::beginTransmission(uint16_t address)
