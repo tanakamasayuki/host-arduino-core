@@ -5,9 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <chrono>
-#include <thread>
-
+#include "HostClock.h"
 #include "Print.h"
 
 class Stream : public Print {
@@ -20,29 +18,38 @@ public:
     void setTimeout(unsigned long timeout) { timeout_ = timeout; }
     unsigned long getTimeout() const { return timeout_; }
 
+    // Both timeouts go through the clock port (cores/host/HostClock.h),
+    // which is what `readBytes` / `find` / `parseInt` inherit. Two things
+    // depend on it: a virtual clock must not leave these waiting in real
+    // seconds, and a driver that answers a UART needs somewhere to put
+    // the answer while the sketch is blocked here — a sketch that writes
+    // a command and reads the reply inside one `loop()` iteration is only
+    // serviceable because the wait is overridable.
     int timedRead()
     {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_);
+        const uint64_t deadline =
+            HostArduino::clockNowMicros() + static_cast<uint64_t>(timeout_) * 1000ULL;
         do {
             const int c = read();
             if (c >= 0) {
                 return c;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } while (std::chrono::steady_clock::now() < deadline);
+            HostArduino::clockWaitMicros(1000);
+        } while (HostArduino::clockNowMicros() < deadline);
         return -1;
     }
 
     int timedPeek()
     {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_);
+        const uint64_t deadline =
+            HostArduino::clockNowMicros() + static_cast<uint64_t>(timeout_) * 1000ULL;
         do {
             const int c = peek();
             if (c >= 0) {
                 return c;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } while (std::chrono::steady_clock::now() < deadline);
+            HostArduino::clockWaitMicros(1000);
+        } while (HostArduino::clockNowMicros() < deadline);
         return -1;
     }
 

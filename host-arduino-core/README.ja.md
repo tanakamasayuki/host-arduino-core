@@ -37,10 +37,10 @@ ESP32 拡張かを示します。
 
 | API | 状況 | 出自 | 備考 |
 |-----|------|------|------|
-| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp` |
-| `millis` / `micros` | ✅ | Arduino | `std::chrono::steady_clock` |
-| `delay` / `delayMicroseconds` | ✅ | Arduino | `std::this_thread::sleep_for` |
-| `yield` | ✅ | Arduino | no-op |
+| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp`。thunk の前後 4 点が任意のフックへ届く（[ライフサイクル口](#ライフサイクル口)） |
+| `millis` / `micros` | ✅ | Arduino | 既定は `std::chrono::steady_clock`。[時計口](#時計口)経由なのでテストが仮想時計に差し替えられる。32bit なので実機と同じく wrap する |
+| `delay` / `delayMicroseconds` | ✅ | Arduino | 既定は `std::this_thread::sleep_for`。[時計口](#時計口)経由で、上書きすれば `delay(5000)` が実時間を消費しない。`delay` のループ・`runtimePoll()`・停止チェックはコア側に残る |
+| `yield` | ✅ | Arduino | `runtimePoll()` + [時計口](#時計口)への長さ 0 の待ち。ビジーウェイト中のスケッチがテスト側に実行機会を渡す唯一の場所 |
 | `min` / `max` / `constrain` / `map` / `abs` | ✅ | Arduino | ヘッダオンリー |
 | `random` / `randomSeed` | ✅ | Arduino | `std::rand` のラッパ |
 | `bit*` / `lowByte` / `highByte` / `_BV` | ✅ | Arduino | マクロ |
@@ -52,9 +52,9 @@ ESP32 拡張かを示します。
 |-----|------|------|------|
 | `Print`（int / hex / bin / float / String / bool） | ✅ | Arduino | Arduino のフォーマットに準拠 |
 | `Printable` | ✅ | Arduino | |
-| `Stream`（`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`） | ✅ | Arduino | |
+| `Stream`（`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`） | ✅ | Arduino | タイムアウトが[時計口](#時計口)経由。仮想時計に追従し、ブロッキング読み出しの内側からテスト側が応答を積める |
 | `HardwareSerial` / `Serial` | ✅ | Arduino | localhost の TCP ソケット越しに公開 |
-| `Serial1` / `Serial2` | 🔲 | ESP32 | 複数 UART を同時に使うスケッチが現れたら |
+| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`。コンソールと分離したデバイス向け UART。送受信ともプログラムが駆動するオンメモリのキュー（[デバイス UART](#デバイス-uart)）。`HardwareSerial` 互換は取らない（コンソール側クラスの別名のまま） |
 
 ### ファイルシステム
 
@@ -147,9 +147,10 @@ ESP32 拡張かを示します。
 
 ```
 tests/
-  runtime/  smoke, timing, print_api, esp_log, gpio_hook, analog_hook,
-            spi_hook, wire_hook, bus_trace, esp_random, esp_timer,
-            freertos_mutex, freertos_notify, freertos_queue,
+  runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
+            clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
+            wire_hook, bus_trace, accept_emu_tick, esp_random,
+            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
             freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
@@ -428,6 +429,184 @@ pwm.write pin=38 duty=200
 `tests/runtime/gpio_hook`、`tests/runtime/analog_hook`、`tests/runtime/spi_hook`、
 `tests/runtime/wire_hook`、`tests/runtime/bus_trace`。
 
+## 拡張口
+
+上のバス観測口は「スケッチがバスに流したもの」をライブラリ側から見る口です。
+テストの土台がスケッチの**横**ではなく**下**に入るために必要な残りを、3 つの
+小さな口が受け持ちます。実行する場所、いまが何時か、話し相手です。いずれも
+1 スロット・1 利用者で、多重化は上の層の仕事です。だからこそ既存のものを
+何も置き換えていません（既存のバスフックは無変更です）。
+
+### ライフサイクル口
+
+`cores/host/HostLifecycle.h`。Arduino thunk の前後 4 点です。
+
+```text
+runtimeStart()
+  kPreSetup          1 回 — 試験の支度。Serial はもう使える
+  setup()
+  kPostSetup         1 回 — setup() が残した状態のダンプ
+  loop {
+    kPreLoop         毎周 — スケッチがこれから観測するものを走らせる
+    loop()
+    kPostLoop        毎周 — その周を締める
+    runtimePoll()
+  }
+```
+
+```cpp
+void onPhase(HostArduino::LifecyclePhase phase, void *user)
+{
+    if (phase == HostArduino::kPostLoop) advanceMyClock();
+}
+
+HostArduino::setLifecycleHook(onPhase, &harness);
+```
+
+**`kPostLoop` は `runtimePoll()` の後ではなく前です。** 外部入力の取り込みは
+つねに「その周を締めた後」になり、**次の周のもの**としてスタンプされます。逆順
+だと `runtimePoll()` が拾ったバイトが「アプリがすでに走り終わった周」に落ちて、
+スケッチが見られなかったものがその周のトレースに写ります。
+
+4 スロットではなくフック 1 本 + phase 引数にしているのは、バス観測口のアナログ
+半分と同じ理由です。4 点は順序付きのシーケンスであり、1 本のストリームとして
+欲しい利用者に 4 本の合成を強いるべきではありません。
+
+`HostArduino::loopCount()` が周回数です。`kPostLoop` でフックが走る**前**に
+加算されるので、`kPostLoop` から読むと「いま締めている周」の番号が得られます。
+`kPreSetup` を捕まえたければグローバルコンストラクタから登録してください。
+`setup()` からでは既に取り逃がしています。
+
+thunk は 2 つとも同じ 4 点を通知します（通常の host ランタイムと、`mode=lgfx`
+および `display` ボードが使う SDL 版）。SDL 版はワーカースレッドで走るため、
+`main` から登録したフックはそちらでは別スレッドで呼ばれます。
+
+### 時計口
+
+`cores/host/HostClock.h`。関数 2 つ、「いま何時か」と「1 スライス待つ」です。
+
+```cpp
+uint64_t virtualNow(void *user)                 { return c(user)->micros; }
+void     virtualWait(uint32_t us, void *user)   { c(user)->micros += us; }
+
+HostArduino::setClockHooks(virtualNow, virtualWait, &clock);
+```
+
+スケッチから見える時間処理はすべてここを通ります。`millis`、`micros`、`delay`、
+`delayMicroseconds`、`yield`、そして `readBytes` / `find` / `parseInt` が乗って
+いる `Stream` のタイムアウトです。
+
+**なぜ「いま」だけでなく「待ち」も渡すのか。** 「いま何時か」だけ差し替えても、
+待つ処理は別の場所にあるので `delay(1000)` は実時間 1 秒眠り続けます。待ちも
+渡すことで、役に立つ 3 状態が 1 つの機構になります。
+
+| 入れたもの | 結果 |
+|---|---|
+| 何も入れない | 実時間の monotonic クロック。`delay` は本当に眠る（この口ができる前と同じ） |
+| 待ちだけ | 実時間のまま、すべての待ちの 1ms スライスごとに自分のコードが走る（onTick 方式） |
+| 両方 | 仮想時間。`delay(5000)` がホスト速度で戻り、時計は 5000ms 進む |
+
+**「いま」だけ**を入れるのが唯一避けるべき組み合わせです。期限は仮想で待ちは
+実時間になり、`delay` のループが期限に到達せず回り続けます。
+
+**コア側に残るもの。** `delay` のループ・`runtimePoll()`・停止チェックは上書き
+できません。上書き側が忘れられないようにするためです。
+
+```cpp
+deadline = clockNowMicros() + ms * 1000;
+while (!runtimeShouldStop() && clockNowMicros() < deadline) {
+    runtimePoll();
+    clockWaitMicros(1000);
+}
+```
+
+`clockRealNowMicros()` / `clockRealWaitMicros()` は何が入っていても実時計に
+届きます。onTick 方式のフックは後者を呼んで実際に眠り、テストは前者で自分の
+実時間コストを測ります。
+
+`yield()` は時限待ちではありませんが、長さ 0 の待ちとして口を通ります。
+ビジーウェイト中のスケッチがホスト側に実行機会を渡す唯一の場所だからです。
+`delay` も `yield` も無い `while (millis() - t0 < 1000);` は、他の場所でしか
+時計が進まない仮想時計の下では終わりません。読み取りごとに微小に進めるのが
+通例の答えで、それは上書き側の仕事です。
+
+### 実時間のまま残るタイムアウト
+
+時計口はコア内のすべての待ちを覆っているわけではありません。仮想時計で書く
+テストは「どの読み値が仮想時計と一致しないか」を知る必要があるので、全一覧を
+ここに置きます。
+
+**意図的に口の外にあるもの** — いずれも実期限 + 実待ちで自己完結しており、必ず
+満了します。実時間を消費し、仮想の `millis()` とは一致しません。
+
+| 何 | 場所 | 備考 |
+|---|---|---|
+| `vTaskDelay` / `vTaskDelayUntil` / `xTaskGetTickCount` | `cores/host/freertos/FreeRTOS.h` | FreeRTOS タスク自身の時計。仮想時計の下で `xTaskGetTickCount()` は `millis()` と一致しない |
+| `xQueueSend` / `xQueueReceive` / `xSemaphoreTake` / `ulTaskNotifyTake` のタイムアウト | `cores/host/freertos/FreeRTOS.h` | `condition_variable::wait_for` なので通知で早く起きる。「1 スライス待つ」1 関数では表現できない二条件待ち |
+| `esp_timer` の発火と `esp_timer_get_time()` | `cores/host/esp_timer.h` | タイマごとに 1 スレッド、condition variable で待つ |
+| `WiFiClientSecure` のハンドシェイク予算（5 秒） | `cores/host/WiFiClientSecure.h` | `select()` で `SSL_connect` を駆動 |
+
+これらはマルチスレッドの事例で、「誰が時計を進めるか」に答えが必要なため仮想化
+していません。コントリビューション歓迎です。それまでは、仮想時計の下で
+`millis()` と `xTaskGetTickCount()` を混ぜると両者が乖離します。
+
+**恒久的に実時間のもの** — プロセス起動とソケット、`cores/host/HostRuntime.cpp`
+内の TCP accept 待ち、`waitForClient`、`HOST_ARDUINO_START_DELAY_MS`、ランチャの
+port ファイル待ち、send のリトライです。ここを仮想化すると、テスト側が実ソケット
+で接続する前にランタイムが止まり、何も起動しません。
+
+`HTTPClient` の読み取りタイムアウトはこの一覧に**入りません**。期限を `millis()`
+から取り `delay(1)` で待つので、仮想時計に正しく追従します。
+
+### デバイス UART
+
+`cores/host/HostUart.h`。`Serial` はコンソールです。TCP ランタイム（`display`
+ボードでは stdout）へ出て行き、スケッチが print したものをテストが読む口です。
+`Serial1` と `Serial2` はもう一方の UART、デバイスがぶら下がる側なので、
+プロセスの外には一切繋がっていません。
+
+```text
+スケッチ --write()--> tx キュー --readTx()--> テスト側
+スケッチ <--read()--- rx キュー <--pushRx()-- テスト側
+```
+
+```cpp
+Serial1.begin(9600, SERIAL_8N1, 16, 17);
+
+// テスト側:
+const String sent = Serial1.readTxString();
+if (sent.startsWith("AT")) Serial1.pushRx("OK\r\n");
+```
+
+どちらのキューも他に消費者がいないので、会話全体をテストが所有します。
+`begun()` / `baudRate()` / `config()` / `rxPin()` / `txPin()` が `begin()` に
+渡された値を返し、`txTotal()` / `rxTotal()` が中身を解釈せずに流量を数えます。
+`txOverflowed()` / `rxOverflowed()` はキューがバイトを捨てたときに立つ sticky な
+フラグで、push ごとではなく最後に 1 回確認すれば足ります。キューは既定で各 1KB、
+`setRxBufferSize` / `setTxBufferSize` で変更できます。
+
+**1 周の中で応答する。** コマンドを書いて `loop()` を抜ける前に応答を読む
+スケッチ（AT コマンド系ドライバはすべてこれ）は `kPreLoop` からは応答できません。
+返答が 1 周遅れて届くためです。代わりに時計口で応答できます。
+`Stream::readBytes` が `clockWaitMicros` で待つので、待ちを上書きしたテスト側が
+スケッチ自身のブロッキング読み出しの内側から tx を抜き rx へ積めます。
+`tests/runtime/uart_buffer` が両方の形を実演しています。
+
+**`HardwareSerial` 互換は取りません。** 実機では `Serial`・`Serial1`・USB CDC が
+同一クラスですが、そのクラスはこのコアに存在しない周辺機器を記述するためのもので、
+そもそもライブラリが「話す先」を要求する方法として `HardwareSerial&` は筋が良く
+ありません（`Stream&` で足ります）。したがって `HostUart` は `Stream` のみを継承し、
+`HardwareSerial` は従来どおりコンソール側クラスの別名のままです。
+`HardwareSerial&` を要求するライブラリは `Serial1` を受け取れません。
+
+再現しないもの: ボーレートのタイミング（書いた瞬間にバイトが現れます）、
+フレーミング、パリティ、ブレーク検出、フロー制御。
+
+実例: 1 つずつは `tests/runtime/lifecycle_hook`、`tests/runtime/clock_hook`、
+`tests/runtime/uart_buffer`。全部を同時に使う例が
+`tests/runtime/accept_emu_tick` で、仮想時計の tick 模型が「そのために書かれて
+いない」普通のデバウンス + AT コマンドのスケッチを下から駆動します。
+
 ## ボード
 
 標準ボードは自動テスト用の `Host` と、手動表示確認用の `Host Display` です。
@@ -503,6 +682,9 @@ SDL2 画面とは別にログコンソールへ表示されます。
 - `cores/host/Arduino.h`: Arduino スケッチ側に見せる最小 API。
 - `cores/host/HostRuntime.{h,cpp}`: ホスト実行ランタイム、TCP 経由の `Serial`、プロセス起動、接続情報ファイル処理。
 - `cores/host/HostBus.{h,cpp}`: GPIO のピン状態、アナログ出力（PWM / DAC）の状態、バス観測フック（[バス観測口](#バス観測口)）。
+- `cores/host/HostLifecycle.{h,cpp}`: Arduino thunk の前後 4 点（[ライフサイクル口](#ライフサイクル口)）。
+- `cores/host/HostClock.{h,cpp}`: コアが時計を読む唯一の場所と、待つ唯一の場所（[時計口](#時計口)）。
+- `cores/host/HostUart.{h,cpp}`: `Serial1` / `Serial2`、デバイス向け UART（[デバイス UART](#デバイス-uart)）。
 - `libraries/SPI/`、`libraries/Wire/`: 同梱の `SPI` / `Wire`。同じ観測口の SPI 半分と I²C 半分。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
 - `scripts/bump_version.py`: `platform.txt` の `version=` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョンを更新します。

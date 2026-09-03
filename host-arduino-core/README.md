@@ -37,10 +37,10 @@ Legend:
 
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
-| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp` |
-| `millis` / `micros` | ✅ | Arduino | `std::chrono::steady_clock` |
-| `delay` / `delayMicroseconds` | ✅ | Arduino | `std::this_thread::sleep_for` |
-| `yield` | ✅ | Arduino | no-op |
+| `setup()` / `loop()` / weak `main` | ✅ | Arduino | `cores/host/main.cpp`. Four fixed points around the thunk reach an optional hook — see [Lifecycle Port](#lifecycle-port) |
+| `millis` / `micros` | ✅ | Arduino | `std::chrono::steady_clock` by default, through the [Clock Port](#clock-port), so a test can substitute a virtual clock. 32-bit, so they wrap as on silicon |
+| `delay` / `delayMicroseconds` | ✅ | Arduino | `std::this_thread::sleep_for` by default, through the [Clock Port](#clock-port). Override it and `delay(5000)` costs no wall-clock time; `delay`'s loop, `runtimePoll()`, and the shutdown check stay in the core |
+| `yield` | ✅ | Arduino | `runtimePoll()` plus a zero-length wait through the [Clock Port](#clock-port), which is where a busy-waiting sketch gives a test driver its chance to run |
 | `min` / `max` / `constrain` / `map` / `abs` | ✅ | Arduino | header-only |
 | `random` / `randomSeed` | ✅ | Arduino | wraps `std::rand` |
 | `bit*` / `lowByte` / `highByte` / `_BV` | ✅ | Arduino | macros |
@@ -52,9 +52,9 @@ Legend:
 |-----|--------|--------|-------|
 | `Print` (int / hex / bin / float / String / bool) | ✅ | Arduino | matches Arduino formatting |
 | `Printable` | ✅ | Arduino | |
-| `Stream` (`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`) | ✅ | Arduino | |
+| `Stream` (`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`) | ✅ | Arduino | the timeouts go through the [Clock Port](#clock-port), so they follow a virtual clock and a driver can answer from inside a blocking read |
 | `HardwareSerial` / `Serial` | ✅ | Arduino | exposed over a localhost TCP socket |
-| `Serial1` / `Serial2` | 🔲 | ESP32 | only needed for sketches that drive multiple UARTs |
+| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`. Device-facing UARTs, separate from the console: both directions are in-memory queues a test drives — see [Device UARTs](#device-uarts). Not `HardwareSerial`, which stays an alias for the console class |
 
 ### Filesystem
 
@@ -148,9 +148,10 @@ behavioral coverage:
 
 ```
 tests/
-  runtime/  smoke, timing, print_api, esp_log, gpio_hook, analog_hook,
-            spi_hook, wire_hook, bus_trace, esp_random, esp_timer,
-            freertos_mutex, freertos_notify, freertos_queue,
+  runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
+            clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
+            wire_hook, bus_trace, accept_emu_tick, esp_random,
+            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
             freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
@@ -448,6 +449,204 @@ in `tests/runtime/gpio_hook`, `tests/runtime/analog_hook`,
 `tests/runtime/spi_hook`, `tests/runtime/wire_hook`, and
 `tests/runtime/bus_trace`.
 
+## Extension Ports
+
+The bus observation port above lets a library watch what a sketch puts on
+a bus. Three smaller ports cover the rest of what a test harness needs to
+sit under a sketch rather than beside it: where to run, what time it is,
+and something to talk to. Each has one slot and one user — multiplexing
+between several interested parties belongs to whatever layer sits above,
+which is also why none of them replaced anything: the existing bus hooks
+are untouched.
+
+### Lifecycle Port
+
+`cores/host/HostLifecycle.h`. Four fixed points around the Arduino thunk:
+
+```text
+runtimeStart()
+  kPreSetup          once — arrange the fixture; Serial already works
+  setup()
+  kPostSetup         once — dump the state setup() left behind
+  loop {
+    kPreLoop         every iteration — run what the sketch is about to see
+    loop()
+    kPostLoop        every iteration — close the iteration out
+    runtimePoll()
+  }
+```
+
+```cpp
+void onPhase(HostArduino::LifecyclePhase phase, void *user)
+{
+    if (phase == HostArduino::kPostLoop) advanceMyClock();
+}
+
+HostArduino::setLifecycleHook(onPhase, &harness);
+```
+
+**`kPostLoop` runs before `runtimePoll()`, not after.** External input is
+therefore always taken in after the iteration has been closed out and is
+stamped as belonging to the *next* one. With the other order, bytes picked
+up by `runtimePoll()` would land in the iteration the sketch had already
+finished running, and a trace would show the sketch alongside input it
+never had a chance to see.
+
+One hook with a phase argument rather than four slots, for the same reason
+the analog half of the bus port has one: the four points are an ordered
+sequence, and a driver that wants them as one stream should not have to
+stitch four streams back together.
+
+`HostArduino::loopCount()` counts iterations, incremented at `kPostLoop`
+before the hook runs — so a driver reading it from `kPostLoop` sees the
+iteration it is closing out. Register from a global constructor to catch
+`kPreSetup`; registering from `setup()` has already missed it.
+
+Both thunks announce the same four points: the plain host runtime and the
+SDL one used by `mode=lgfx` and the `display` board. The SDL thunk runs on
+a worker thread, so a driver that registers from `main` gets its hook on
+another thread there.
+
+### Clock Port
+
+`cores/host/HostClock.h`. Two functions — what time is it, and wait a
+slice:
+
+```cpp
+uint64_t virtualNow(void *user)                 { return c(user)->micros; }
+void     virtualWait(uint32_t us, void *user)   { c(user)->micros += us; }
+
+HostArduino::setClockHooks(virtualNow, virtualWait, &clock);
+```
+
+Every sketch-facing time function goes through it: `millis`, `micros`,
+`delay`, `delayMicroseconds`, `yield`, and the `Stream` timeouts that
+`readBytes` / `find` / `parseInt` are built on.
+
+**Why the wait and not just the clock.** A driver that only replaced "what
+time is it" would still sit through every `delay(1000)` in real seconds,
+because the waiting happens somewhere else. Handing over the wait as well
+is what makes the three useful states one mechanism:
+
+| Installed | Result |
+|-----------|--------|
+| nothing | the real monotonic clock, `delay` really sleeps — unchanged from before this port existed |
+| wait only | real time, plus your code on every 1 ms slice of every wait. The "tick callback" shape |
+| both | virtual time: `delay(5000)` returns at host speed with the clock 5000 ms further on |
+
+Installing **only** `now` is the one combination to avoid: the deadline
+would be virtual while the wait stayed real, so `delay`'s loop would spin
+without the clock ever reaching it.
+
+**What stays in the core.** `delay`'s loop, `runtimePoll()`, and the
+shutdown check are not overridable, so a driver cannot forget them:
+
+```cpp
+deadline = clockNowMicros() + ms * 1000;
+while (!runtimeShouldStop() && clockNowMicros() < deadline) {
+    runtimePoll();
+    clockWaitMicros(1000);
+}
+```
+
+`clockRealNowMicros()` / `clockRealWaitMicros()` reach the real clock
+whatever is installed — a tick-shaped hook calls the latter to keep
+sleeping for real, and a test measures its own wall-clock cost with the
+former.
+
+`yield()` is not a timed wait but goes through the port as a zero-length
+one, because it is the one place a busy-waiting sketch offers the host a
+chance to run. A sketch that spins on `while (millis() - t0 < 1000);` with
+no `delay` and no `yield` inside will not terminate under a virtual clock
+that only advances elsewhere; advancing a little on each reading is the
+usual answer, and it belongs to the driver.
+
+### Timeouts that stay on real time
+
+The clock port does not cover every wait in the core. A test written
+against a virtual clock needs to know which readings will not agree with
+it, so here is the complete list.
+
+**Deliberately outside the port** — these are self-consistent (real
+deadline, real wait), so they always expire; they just cost wall-clock
+time and disagree with a virtual `millis()`:
+
+| What | Where | Note |
+|------|-------|------|
+| `vTaskDelay` / `vTaskDelayUntil` / `xTaskGetTickCount` | `cores/host/freertos/FreeRTOS.h` | a FreeRTOS task's own clock. `xTaskGetTickCount()` will not match `millis()` under a virtual clock |
+| `xQueueSend` / `xQueueReceive` / `xSemaphoreTake` / `ulTaskNotifyTake` timeouts | `cores/host/freertos/FreeRTOS.h` | `condition_variable::wait_for`, so they wake early on notify — a two-condition wait a single "wait a slice" cannot express |
+| `esp_timer` firing, and `esp_timer_get_time()` | `cores/host/esp_timer.h` | one thread per timer, waiting on a condition variable |
+| `WiFiClientSecure` handshake budget (5 s) | `cores/host/WiFiClientSecure.h` | drives `SSL_connect` through `select()` |
+
+These are the multi-thread cases, where "who advances the clock" needs an
+answer before they can be virtualized. They are open for contribution;
+until then, a sketch that mixes `millis()` with `xTaskGetTickCount()`
+under a virtual clock will see the two diverge.
+
+**Permanently on real time** — process startup and sockets, in
+`cores/host/HostRuntime.cpp`: the TCP accept wait, `waitForClient`,
+`HOST_ARDUINO_START_DELAY_MS`, the launcher's port-file wait, and the
+send retry. Virtualizing these would stall the runtime before the test
+harness had connected over a real socket, and nothing would start.
+
+`HTTPClient`'s read timeout is **not** on this list: it takes its deadline
+from `millis()` and waits with `delay(1)`, so it follows a virtual clock
+correctly.
+
+### Device UARTs
+
+`cores/host/HostUart.h`. `Serial` is the console — it goes out over the
+TCP runtime (or stdout on the `display` board) and is how a test reads
+what the sketch printed. `Serial1` and `Serial2` are the other kind of
+UART, the one a device hangs off, so they are not wired to anything
+outside the process:
+
+```text
+sketch --write()--> tx queue --readTx()--> driver
+sketch <--read()--- rx queue <--pushRx()-- driver
+```
+
+```cpp
+Serial1.begin(9600, SERIAL_8N1, 16, 17);
+
+// in the driver:
+const String sent = Serial1.readTxString();
+if (sent.startsWith("AT")) Serial1.pushRx("OK\r\n");
+```
+
+Because nothing else consumes either queue, a test owns the whole
+conversation. `begun()` / `baudRate()` / `config()` / `rxPin()` /
+`txPin()` report what `begin()` was given; `txTotal()` / `rxTotal()` count
+traffic without decoding it; `txOverflowed()` / `rxOverflowed()` are
+sticky flags set when a queue had to drop bytes, so a test checks once at
+the end rather than after every push. Queues default to 1 KB each and
+`setRxBufferSize` / `setTxBufferSize` change that.
+
+**Answering inside one iteration.** A sketch that writes a command and
+reads the reply before returning from `loop()` — every AT-command driver
+does this — cannot be served from `kPreLoop`, because the reply would
+arrive an iteration too late. It is serviceable through the clock port
+instead: `Stream::readBytes` waits via `clockWaitMicros`, so a driver that
+has overridden the wait can drain tx and push rx from inside the sketch's
+own blocking read. `tests/runtime/uart_buffer` does it both ways.
+
+**Not `HardwareSerial`.** On real silicon `Serial`, `Serial1`, and USB CDC
+are all one class, but that class describes a peripheral this core does
+not have, and taking a `HardwareSerial&` is a poor way for a library to
+ask for "somewhere to talk" — `Stream&` says it without the baggage. So
+`HostUart` derives from `Stream` and nothing else, and `HardwareSerial`
+stays what it was, an alias for the console class. A library that insists
+on `HardwareSerial&` will not accept `Serial1` here.
+
+Not modelled: baud timing (bytes appear the instant they are written),
+framing, parity, break detection, flow control.
+
+Worked examples: `tests/runtime/lifecycle_hook`, `tests/runtime/clock_hook`,
+and `tests/runtime/uart_buffer` for one port each, and
+`tests/runtime/accept_emu_tick` for all of them at once — a virtual-clock
+tick model driving an ordinary debounce + AT-command sketch that was not
+written for it.
+
 ## Boards
 
 The standard boards are `Host` for automated tests and `Host Display` for
@@ -517,6 +716,9 @@ and log console separate.
 - `cores/host/Arduino.h`: minimal Arduino-facing API surface.
 - `cores/host/HostRuntime.{h,cpp}`: host runtime, TCP-backed `Serial`, process launcher, and connection-info file handling.
 - `cores/host/HostBus.{h,cpp}`: GPIO pin state, analog output (PWM / DAC) state, and the bus observation hooks (see [Bus Observation Port](#bus-observation-port)).
+- `cores/host/HostLifecycle.{h,cpp}`: the four points around the Arduino thunk (see [Lifecycle Port](#lifecycle-port)).
+- `cores/host/HostClock.{h,cpp}`: the one place the core reads the clock and the one place it waits (see [Clock Port](#clock-port)).
+- `cores/host/HostUart.{h,cpp}`: `Serial1` / `Serial2`, the device-facing UARTs (see [Device UARTs](#device-uarts)).
 - `libraries/SPI/`, `libraries/Wire/`: bundled `SPI` / `Wire` with the SPI and I²C halves of the same port.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
 - `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.

@@ -48,11 +48,18 @@ extern void loop();
 static int host_lgfx_thunk(bool *running)
 {
     HostArduino::runtimeLogInfo("lgfx_thunk_enter");
+    // The same four lifecycle points as the plain thunk below, in the
+    // same order — see cores/host/HostLifecycle.h. This one runs on a
+    // Panel_sdl worker thread, which is the only difference.
+    HostArduino::lifecycle_detail::announce(HostArduino::kPreSetup);
     setup();
+    HostArduino::lifecycle_detail::announce(HostArduino::kPostSetup);
     HostArduino::runtimeLogInfo("lgfx_setup_returned");
     while (*running && !HostArduino::runtimeShouldStop())
     {
+        HostArduino::lifecycle_detail::announce(HostArduino::kPreLoop);
         loop();
+        HostArduino::lifecycle_detail::announce(HostArduino::kPostLoop);
         HostArduino::runtimePoll();
     }
     // Release Panel_sdl::main's event loop. With SDL_VIDEODRIVER=dummy
@@ -103,10 +110,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // Lifecycle points, see cores/host/HostLifecycle.h. `kPostLoop` runs
+    // before `runtimePoll()` so external input is always taken in after
+    // the iteration has been closed out.
+    HostArduino::lifecycle_detail::announce(HostArduino::kPreSetup);
     setup();
+    HostArduino::lifecycle_detail::announce(HostArduino::kPostSetup);
     while (!HostArduino::runtimeShouldStop())
     {
+        HostArduino::lifecycle_detail::announce(HostArduino::kPreLoop);
         loop();
+        HostArduino::lifecycle_detail::announce(HostArduino::kPostLoop);
         HostArduino::runtimePoll();
     }
 
