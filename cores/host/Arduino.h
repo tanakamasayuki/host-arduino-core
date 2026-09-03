@@ -148,6 +148,8 @@ extern void setup();
 extern void loop();
 
 #include "HostRuntime.h"
+#include "HostLifecycle.h"
+#include "HostUart.h"
 #include "esp32-hal-log.h"
 #include "esp_random.h"
 #include "esp_timer.h"

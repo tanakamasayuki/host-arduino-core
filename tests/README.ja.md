@@ -9,8 +9,9 @@ English: [README.md](README.md)
 ```
 tests/
   runtime/   # host 専用 — Arduino ランタイム基本機能 (smoke, timing, print_api,
-             #             gpio_hook, analog_hook, spi_hook,
-             #             wire_hook, bus_trace)
+             #             lifecycle_hook, clock_hook,
+             #             uart_buffer, gpio_hook, analog_hook,
+             #             spi_hook, wire_hook, bus_trace)
   storage/   # host 専用 — LittleFS / SPIFFS / FFat / SD ファサード (fs)
   network/   # host 専用 — IPAddress / UDP / TCP / TLS / HTTPClient
   interop/   # host + ESP32 実機 — 実装間互換性の検証 (smoke, wifi_connect, https_get, ...)

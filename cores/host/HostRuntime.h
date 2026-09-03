@@ -4,11 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
+// Not used by this header any more — the time functions below go through
+// HostClock.h. Kept because `Arduino.h` pulls this in for every sketch and
+// bundled library, and ESP32 code routinely reaches for `std::thread` /
+// `std::chrono` right after `#include <Arduino.h>`. Dropping them would
+// narrow that surface for no gain.
 #include <chrono>
 #include <string>
 #include <thread>
 
 #include "HostBus.h"
+#include "HostClock.h"
 #include "Stream.h"
 
 namespace HostArduino {
@@ -77,40 +83,49 @@ public:
 
 extern SerialClass Serial;
 
+// Time — everything here goes through the clock port in
+// cores/host/HostClock.h, which is what makes a virtual clock possible.
+// The truncation to 32 bits is deliberate: `millis` and `micros` wrap the
+// way they do on real silicon.
 inline uint32_t millis()
 {
-    static const auto start = std::chrono::steady_clock::now();
-    const auto now = std::chrono::steady_clock::now();
-    return static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count());
+    return static_cast<uint32_t>(HostArduino::clockNowMicros() / 1000ULL);
 }
 
 inline uint32_t micros()
 {
-    static const auto start = std::chrono::steady_clock::now();
-    const auto now = std::chrono::steady_clock::now();
-    return static_cast<uint32_t>(
-        std::chrono::duration_cast<std::chrono::microseconds>(now - start).count());
+    return static_cast<uint32_t>(HostArduino::clockNowMicros());
 }
 
+// The loop, the poll, and the shutdown check stay here rather than being
+// handed to the clock port: an override that forgot `runtimePoll()` would
+// stop Serial input from being picked up, and one that forgot the stop
+// check would keep a killed process spinning. Only "what time is it" and
+// "wait a slice" are overridable.
 inline void delay(unsigned long ms)
 {
-    const auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
-    while (!HostArduino::runtimeShouldStop() && std::chrono::steady_clock::now() < end) {
+    const uint64_t deadline = HostArduino::clockNowMicros() + static_cast<uint64_t>(ms) * 1000ULL;
+    while (!HostArduino::runtimeShouldStop() && HostArduino::clockNowMicros() < deadline) {
         HostArduino::runtimePoll();
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        HostArduino::clockWaitMicros(1000);
     }
 }
 
+// One wait, no poll and no stop check — matching what this did before.
+// Sketches call it for sub-millisecond bit timing, where a poll on every
+// call would cost more than the wait itself.
 inline void delayMicroseconds(unsigned int us)
 {
-    std::this_thread::sleep_for(std::chrono::microseconds(us));
+    HostArduino::clockWaitMicros(us);
 }
 
+// Not a timed wait, but it is the one place a busy-waiting sketch offers
+// the host a chance to run, so it goes through the port as a zero-length
+// wait. The default treats 0 as a thread yield, so nothing changes.
 inline void yield()
 {
     HostArduino::runtimePoll();
-    std::this_thread::yield();
+    HostArduino::clockWaitMicros(0);
 }
 
 // GPIO — see cores/host/HostBus.h for what the pin state and the hooks
