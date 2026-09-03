@@ -5,40 +5,57 @@
 HostUart Serial1(1);
 HostUart Serial2(2);
 
+// Every function that notifies the activity hook closes its lock scope
+// first. The callback is expected to call back in — `pushRx` from a
+// `kUartTx` notification is the whole point — and `_mutex` is not
+// recursive, so notifying while holding it would deadlock.
+
 void HostUart::begin(unsigned long baud, uint32_t config, int8_t rxPin, int8_t txPin)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _baud = baud;
-    _config = config;
-    _rxPin = rxPin;
-    _txPin = txPin;
-    _begun = true;
-    // Whatever was in flight belongs to the previous session. A driver
-    // that re-begins mid-test gets a clean conversation, which is what
-    // re-initializing a real UART amounts to.
-    _tx.clear();
-    _rx.clear();
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _baud = baud;
+        _config = config;
+        _rxPin = rxPin;
+        _txPin = txPin;
+        _begun = true;
+        // Whatever was in flight belongs to the previous session. A driver
+        // that re-begins mid-test gets a clean conversation, which is what
+        // re-initializing a real UART amounts to.
+        _tx.clear();
+        _rx.clear();
+    }
+    report(kUartBegin, nullptr, 0);
 }
 
 void HostUart::end()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _begun = false;
-    _tx.clear();
-    _rx.clear();
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _begun = false;
+        _tx.clear();
+        _rx.clear();
+    }
+    report(kUartEnd, nullptr, 0);
 }
 
 void HostUart::setPins(int8_t rxPin, int8_t txPin)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _rxPin = rxPin;
-    _txPin = txPin;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _rxPin = rxPin;
+        _txPin = txPin;
+    }
+    report(kUartConfig, nullptr, 0);
 }
 
 void HostUart::updateBaudRate(unsigned long baud)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _baud = baud;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _baud = baud;
+    }
+    report(kUartConfig, nullptr, 0);
 }
 
 int HostUart::availableForWrite()
@@ -49,16 +66,19 @@ int HostUart::availableForWrite()
 
 size_t HostUart::write(uint8_t value)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    if (_tx.size() >= _txLimit) {
-        // Drop the newest rather than the oldest. Losing the tail of a
-        // command is easier to recognize than losing its head, and the
-        // sticky flag is what a test actually checks.
-        _txOverflow = true;
-        return 0;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_tx.size() >= _txLimit) {
+            // Drop the newest rather than the oldest. Losing the tail of a
+            // command is easier to recognize than losing its head, and the
+            // sticky flag is what a test actually checks.
+            _txOverflow = true;
+            return 0;
+        }
+        _tx.push_back(value);
+        ++_txTotal;
     }
-    _tx.push_back(value);
-    ++_txTotal;
+    report(kUartTx, &value, 1);
     return 1;
 }
 
@@ -67,16 +87,23 @@ size_t HostUart::write(const uint8_t *buffer, size_t size)
     if (!buffer) {
         return 0;
     }
-    std::lock_guard<std::mutex> lock(_mutex);
     size_t written = 0;
-    for (size_t i = 0; i < size; ++i) {
-        if (_tx.size() >= _txLimit) {
-            _txOverflow = true;
-            break;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        for (size_t i = 0; i < size; ++i) {
+            if (_tx.size() >= _txLimit) {
+                _txOverflow = true;
+                break;
+            }
+            _tx.push_back(buffer[i]);
+            ++_txTotal;
+            ++written;
         }
-        _tx.push_back(buffer[i]);
-        ++_txTotal;
-        ++written;
+    }
+    if (written) {
+        // The accepted prefix of the caller's own buffer — whatever
+        // overflow dropped is not reported, only what went on the wire.
+        report(kUartTx, buffer, written);
     }
     return written;
 }
@@ -89,12 +116,19 @@ int HostUart::available()
 
 int HostUart::read()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    if (_rx.empty()) {
-        return -1;
+    uint8_t value = 0;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        if (_rx.empty()) {
+            return -1;
+        }
+        value = _rx.front();
+        _rx.pop_front();
     }
-    const uint8_t value = _rx.front();
-    _rx.pop_front();
+    // One notification per byte. `readBytes` of a long reply is that many
+    // calls, which is affordable at UART rates and keeps the consumed
+    // bytes in the order the sketch took them.
+    report(kUartRx, &value, 1);
     return static_cast<int>(value);
 }
 
@@ -109,28 +143,44 @@ int HostUart::peek()
 
 void HostUart::flush()
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _rx.clear();
+    // Copied out before dropping so the notification can say what was
+    // lost. `flush()` is rare and the queue is bounded, so the copy is
+    // cheaper than a trace with a hole in it.
+    std::vector<uint8_t> dropped;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        dropped.assign(_rx.begin(), _rx.end());
+        _rx.clear();
+    }
+    if (!dropped.empty()) {
+        report(kUartRxDiscard, dropped.data(), dropped.size());
+    }
 }
 
 void HostUart::setRxBufferSize(size_t size)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _rxLimit = size ? size : 1;
-    while (_rx.size() > _rxLimit) {
-        _rx.pop_back();
-        _rxOverflow = true;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _rxLimit = size ? size : 1;
+        while (_rx.size() > _rxLimit) {
+            _rx.pop_back();
+            _rxOverflow = true;
+        }
     }
+    report(kUartConfig, nullptr, 0);
 }
 
 void HostUart::setTxBufferSize(size_t size)
 {
-    std::lock_guard<std::mutex> lock(_mutex);
-    _txLimit = size ? size : 1;
-    while (_tx.size() > _txLimit) {
-        _tx.pop_back();
-        _txOverflow = true;
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _txLimit = size ? size : 1;
+        while (_tx.size() > _txLimit) {
+            _tx.pop_back();
+            _txOverflow = true;
+        }
     }
+    report(kUartConfig, nullptr, 0);
 }
 
 size_t HostUart::txAvailable()

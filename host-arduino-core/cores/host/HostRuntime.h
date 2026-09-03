@@ -260,8 +260,19 @@ void tone(uint8_t pin, unsigned int frequency, unsigned long duration = 0);
 void noTone(uint8_t pin);
 
 inline int digitalPinToInterrupt(int pin) { return pin; }
-inline void attachInterrupt(int, void (*)(void), int) {}
-inline void detachInterrupt(int) {}
+
+// Interrupts — see cores/host/HostInterrupt.h. The registration is kept
+// and can be invoked from outside; nothing here watches pin levels, so a
+// `digitalWrite` or `setPinValue` never produces one on its own.
+#ifndef HOST_ARDUINO_VOID_FUNC_PTR_DEFINED
+#define HOST_ARDUINO_VOID_FUNC_PTR_DEFINED
+typedef void (*voidFuncPtr)(void);
+typedef void (*voidFuncPtrArg)(void *);
+#endif
+
+void attachInterrupt(uint8_t pin, void (*handler)(void), int mode);
+void attachInterruptArg(uint8_t pin, void (*handler)(void *), void *arg, int mode);
+void detachInterrupt(uint8_t pin);
 inline unsigned long pulseIn(int, int, unsigned long = 1000000UL) { return 0; }
 inline unsigned long pulseInLong(int, int, unsigned long = 1000000UL) { return 0; }
 

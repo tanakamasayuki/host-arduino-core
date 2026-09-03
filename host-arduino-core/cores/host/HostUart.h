@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <mutex>
+#include <vector>
 
 #include "Stream.h"
 
@@ -53,6 +54,28 @@
 // `Serial1` here; if a real sketch needs that, say so and it can be
 // revisited.
 //
+// Watching instead of polling. `txAvailable` / `readTx` are one way to
+// drive this, and the activity hook is the other: it fires synchronously,
+// before `write()` returns, so what the sketch put on the UART keeps its
+// place among the GPIO and SPI events around it. That ordering is the
+// reason the hook exists — a drain from `kPreLoop` can tell you what was
+// sent but not when, relative to everything else.
+//
+// The hook is called with no lock held, so a driver can push the answer
+// straight back from the notification:
+//
+//   void onActivity(HostUart::ActivityEvent ev, HostUart &uart,
+//                   const uint8_t *data, size_t len, void *user)
+//   {
+//       if (ev == HostUart::kUartTx && looksLikeAT(data, len)) {
+//           uart.pushRx("OK\r\n");
+//       }
+//   }
+//
+// Bytes still enter the transmit queue when a hook is installed, so the
+// two ways of driving this coexist — which also means a driver that both
+// watches and drains sees every byte twice. Pick one.
+//
 // Not modelled: baud timing (bytes appear the instant they are written),
 // framing, parity, break detection, flow control. `begin()` records what
 // it was given so a test can assert the wiring, and nothing enforces it.
@@ -97,6 +120,41 @@ public:
     // purpose: a driver that is not draining should find out, not
     // accumulate a megabyte of unread commands.
     static constexpr size_t kDefaultBufferSize = 1024;
+
+    // What happened on the UART, in the order the sketch caused it.
+    //
+    //   kUartBegin / kUartEnd   begin() / end(); no bytes
+    //   kUartConfig             setPins, updateBaudRate, setRxBufferSize,
+    //                           setTxBufferSize; no bytes
+    //   kUartTx                 bytes the sketch wrote that the queue
+    //                           accepted — what was dropped on overflow is
+    //                           not reported, `txOverflowed()` says it
+    //                           happened
+    //   kUartRx                 bytes the sketch consumed with read()
+    //   kUartRxDiscard          bytes flush() dropped before the sketch
+    //                           read them, so a trace does not lose them
+    //                           silently
+    //
+    // A driver's own `readTx` / `pushRx` are not reported: those are its
+    // side of the wire, and reporting them would notify it of its own
+    // actions.
+    enum ActivityEvent : uint8_t {
+        kUartBegin = 0,
+        kUartEnd,
+        kUartConfig,
+        kUartTx,
+        kUartRx,
+        kUartRxDiscard,
+    };
+
+    // Called after the change has been applied and with no lock held, so
+    // the callback may call back into this object — `pushRx` from a
+    // `kUartTx` notification is the point of the whole thing. `data` is
+    // valid for the duration of the call only, and is null for the events
+    // that carry no bytes. `uart` is non-const so the callback can answer;
+    // writing to it from `kUartTx` would recurse, so do not.
+    using ActivityHook = void (*)(ActivityEvent event, HostUart &uart, const uint8_t *data,
+                                  size_t len, void *user);
 
     explicit HostUart(uint8_t uart_num = 1) : _uart(uart_num) {}
 
@@ -166,6 +224,19 @@ public:
 
     void clearRx();
 
+    // One slot, `nullptr` unregisters. Multiplexing belongs above.
+    void setActivityHook(ActivityHook hook, void *user = nullptr)
+    {
+        _activityHook = hook;
+        _activityHookUser = user;
+    }
+
+    void clearActivityHook()
+    {
+        _activityHook = nullptr;
+        _activityHookUser = nullptr;
+    }
+
     // Set when a queue had to drop bytes: tx because the driver did not
     // drain, rx because the sketch did not read. Sticky until cleared, so
     // a test can check once at the end instead of after every push.
@@ -209,6 +280,19 @@ private:
     bool _rxOverflow = false;
     uint32_t _txTotal = 0;
     uint32_t _rxTotal = 0;
+
+    ActivityHook _activityHook = nullptr;
+    void *_activityHookUser = nullptr;
+
+    // Must only be called with `_mutex` released: the callback is expected
+    // to call `pushRx`, which takes it. Every caller below therefore closes
+    // its lock scope first.
+    void report(ActivityEvent event, const uint8_t *data, size_t len)
+    {
+        if (_activityHook) {
+            _activityHook(event, *this, data, len, _activityHookUser);
+        }
+    }
 };
 
 extern HostUart Serial1;

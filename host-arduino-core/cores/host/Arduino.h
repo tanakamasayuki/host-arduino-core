@@ -89,6 +89,26 @@ typedef uint16_t word;
 #define RISING 3
 #endif
 
+// Level triggers, at arduino-esp32's values — they do not collide with the
+// three above, which keep the AVR numbering this core has always used.
+//
+// Careful: those three do NOT agree with arduino-esp32, where RISING is 1
+// and CHANGE is 3. The numbers are host-local, and every mode this core
+// records is also reported as a normalized `HostArduino::InterruptTrigger`
+// so nothing has to compare them — see cores/host/HostInterrupt.h.
+#ifndef ONLOW
+#define ONLOW 0x04
+#endif
+#ifndef ONHIGH
+#define ONHIGH 0x05
+#endif
+#ifndef ONLOW_WE
+#define ONLOW_WE 0x0C
+#endif
+#ifndef ONHIGH_WE
+#define ONHIGH_WE 0x0D
+#endif
+
 #ifndef LED_BUILTIN
 #define LED_BUILTIN 13
 #endif
@@ -148,6 +168,7 @@ extern void setup();
 extern void loop();
 
 #include "HostRuntime.h"
+#include "HostInterrupt.h"
 #include "HostLifecycle.h"
 #include "HostUart.h"
 #include "esp32-hal-log.h"

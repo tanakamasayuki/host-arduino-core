@@ -54,7 +54,7 @@ Legend:
 | `Printable` | ✅ | Arduino | |
 | `Stream` (`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`) | ✅ | Arduino | the timeouts go through the [Clock Port](#clock-port), so they follow a virtual clock and a driver can answer from inside a blocking read |
 | `HardwareSerial` / `Serial` | ✅ | Arduino | exposed over a localhost TCP socket |
-| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`. Device-facing UARTs, separate from the console: both directions are in-memory queues a test drives — see [Device UARTs](#device-uarts). Not `HardwareSerial`, which stays an alias for the console class |
+| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`. Device-facing UARTs, separate from the console: both directions are in-memory queues a test drives, either by polling them or through a synchronous activity hook that fires before `write()` returns — see [Device UARTs](#device-uarts). Not `HardwareSerial`, which stays an alias for the console class |
 
 ### Filesystem
 
@@ -97,7 +97,7 @@ sketch puts on the bus.
 | API | Status | Source | Notes |
 |-----|--------|--------|-------|
 | `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | pin state is held: `digitalRead` returns the last value written, `INPUT_PULLUP` reads HIGH. Every write is announced to an optional hook — see [Bus Observation Port](#bus-observation-port). No electrical behavior, no timing |
-| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | reads what `HostArduino::setAnalogValue` / `setAnalogMilliVolts` injected, or what an analog read hook computes — the response direction of the [analog half](#bus-observation-port) of the port. Resolution is recorded, never applied: scaling the injected value would mean inventing a reference |
+| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | reads what `HostArduino::setAnalogValue` / `setAnalogMilliVolts` injected, or what a read hook computes — the raw and millivolt readings have a hook each, and width changes reach a third — the response direction of the [analog half](#bus-observation-port) of the port. Resolution is recorded, never applied: scaling the injected value would mean inventing a reference |
 | `analogWrite` / `analogWriteFrequency` / `analogWriteResolution` | ✅ | Arduino / ESP32 | routed through LEDC, so an unattached pin is attached with the global defaults on first use exactly as arduino-esp32 does. Every call is announced to `HostArduino::setAnalogWriteHook` with the pin, channel, frequency, resolution, and duty |
 | `ledcAttach` / `ledcAttachChannel` / `ledcWrite` / `ledcWriteChannel` / `ledcRead` / `ledcReadFreq` / `ledcChangeFrequency` / `ledcDetach` / `ledcWriteTone` / `ledcWriteNote` / `ledcOutputInvert` / `ledcFade*` | ✅ | ESP32 | per-pin state plus the same hook. Refusals match silicon (duty on an unattached pin, a re-attach, a resolution wider than 20 bits, a zero frequency) and report no event. 16 channels, classic-ESP32 numbering. Fades land on the target immediately — `max_fade_time_ms` is ignored and both endpoints are reported. The 2.x `ledcSetup` / `ledcAttachPin` spellings are **not** provided: arduino-esp32 3.x removed them, and `ledcWriteChannel` covers the channel-based write |
 | `dacWrite` / `dacDisable` | ✅ | ESP32 | tracked in the same per-pin slot with no channel and no frequency, so one trace covers PWM and DAC. Any pin is accepted — which pins a board wires to a DAC is a variant detail the core does not carry |
@@ -106,7 +106,7 @@ sketch puts on the bus.
 | `analogContinuous*` | 🔲 | ESP32 | not provided; no concrete sketch has needed it |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | returns `0` |
 | `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
-| `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op stubs |
+| `attachInterrupt` / `attachInterruptArg` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`. The registration is kept and can be invoked from outside with `HostArduino::triggerInterrupt(pin)` — see [Interrupt Port](#interrupt-port). Nothing watches pin levels, so a `digitalWrite` or `setPinValue` never produces one: deciding an edge happened is the caller's job. The mode is reported both raw and as a normalized `InterruptTrigger`, because the raw numbers disagree with arduino-esp32 |
 | `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` reach a lifecycle hook, so bus setup lands in the same ordered trace as the traffic. `Wire1` also provided |
 | `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook, and `begin()` / `end()` / the configuration setters to a lifecycle hook. Timing is not modelled |
 | `Servo` | 🔲 | Arduino | no-op stub |
@@ -149,10 +149,10 @@ behavioral coverage:
 ```
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
-            clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
-            wire_hook, bus_trace, accept_emu_tick, esp_random,
-            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
-            freertos_task
+            clock_hook, uart_buffer, gpio_hook, interrupt_hook,
+            analog_hook, spi_hook, wire_hook, bus_trace,
+            accept_emu_tick, esp_random, esp_timer, freertos_mutex,
+            freertos_notify, freertos_queue, freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
@@ -314,10 +314,16 @@ while the duty is 0, which hides what was configured.
   would have got.
 - The read direction: `HostArduino::setAnalogValue(pin, raw)` and
   `setAnalogMilliVolts(pin, mv)` inject what `analogRead` /
-  `analogReadMilliVolts` return, and `setAnalogReadHook` is there for a
-  reading a model has to compute. The two quantities are injected
-  separately on purpose — deriving one from the other needs an attenuation
-  and Vref model the core does not have.
+  `analogReadMilliVolts` return, and each has a hook of its own —
+  `setAnalogReadHook` and `setAnalogMilliVoltsHook` — for a reading a model
+  has to compute. The two quantities stay separate on purpose: deriving one
+  from the other needs an attenuation and Vref model the core does not
+  have. `setAnalogReadConfigHook` reports width changes
+  (`analogReadResolution` / `analogSetWidth`, which are the same knob), so
+  read-side configuration is observable in call order too. It is a separate
+  hook rather than an event on `setAnalogWriteHook`, and nothing is lost by
+  that — both are called synchronously on the sketch's thread, so a driver
+  appending to one buffer from several hooks keeps the order.
 - Not modelled: waveforms, timing, timer sharing. Nothing is emitted on the
   pin, `digitalRead` does not see a PWM signal, and a duty of 128/255 does
   not make anything half-bright. Fades land on the target immediately.
@@ -452,9 +458,9 @@ in `tests/runtime/gpio_hook`, `tests/runtime/analog_hook`,
 ## Extension Ports
 
 The bus observation port above lets a library watch what a sketch puts on
-a bus. Three smaller ports cover the rest of what a test harness needs to
-sit under a sketch rather than beside it: where to run, what time it is,
-and something to talk to. Each has one slot and one user — multiplexing
+a bus. Four smaller ports cover the rest of what a test harness needs to
+sit under a sketch rather than beside it: where to run, when to interrupt,
+what time it is, and something to talk to. Each has one slot and one user — multiplexing
 between several interested parties belongs to whatever layer sits above,
 which is also why none of them replaced anything: the existing bus hooks
 are untouched.
@@ -506,6 +512,76 @@ Both thunks announce the same four points: the plain host runtime and the
 SDL one used by `mode=lgfx` and the `display` board. The SDL thunk runs on
 a worker thread, so a driver that registers from `main` gets its hook on
 another thread there.
+
+### Interrupt Port
+
+`cores/host/HostInterrupt.h`. `attachInterrupt` used to be a no-op, so an
+ISR-driven sketch linked and then never fired. This port keeps the
+registration and lets external code invoke it:
+
+```cpp
+// the sketch, unchanged and unaware
+attachInterrupt(digitalPinToInterrupt(BTN), onButton, FALLING);
+
+// the driver: it saw the line move, it decides whether that matches
+if (HostArduino::interruptTrigger(BTN) == HostArduino::kTriggerFalling) {
+    HostArduino::triggerInterrupt(BTN);
+}
+```
+
+**The core decides nothing.** It does not watch pin levels — `digitalWrite`
+and `HostArduino::setPinValue` produce no interrupts — it does not compare
+a movement against the registered mode, and it does not queue, coalesce or
+refuse nested invocations. That is deliberate: one place should own the
+ordering of value change, log entry, edge decision and handler call, and a
+core that inferred edges from `setPinValue` would be a second, competing
+decision-maker. `interruptTrigger` / `interruptMode` / `interruptSlot` are
+there so the caller can make that decision with the same information.
+
+**Modes are reported twice, and this matters.** The raw Arduino constants
+in this core do not agree with arduino-esp32:
+
+| | this core | arduino-esp32 |
+|---|---|---|
+| `RISING` | 3 | 1 |
+| `FALLING` | 2 | 2 |
+| `CHANGE` | 1 | 3 |
+
+`RISING` and `CHANGE` are swapped, so code that matched on the number would
+not get a mismatch — it would get a silent *wrong* match. The values are
+kept as they are because they already cross the observation port
+(`pinModeOf`, the `kAnalogAttach` payload, every existing golden trace), so
+changing them would break traces that are already in use. Instead every
+registration is also reported as a normalized `InterruptTrigger`
+(`kTriggerRising`, `kTriggerFalling`, `kTriggerChange`, `kTriggerLevelLow`,
+`kTriggerLevelHigh`, `kTriggerUnknown`). Match on that and the numbering
+never comes up. `InterruptSlot::mode` keeps the raw value for a test that
+wants to assert the literal call.
+
+`setInterruptHook` reports four events on one slot:
+
+| Event | When |
+|-------|------|
+| `kInterruptAttach` | `attachInterrupt` / `attachInterruptArg`, including a re-arm |
+| `kInterruptDetach` | `detachInterrupt` on an attached pin |
+| `kInterruptEnter` | immediately before the handler runs |
+| `kInterruptExit` | immediately after it returns |
+
+The last two bracket the handler, which is what makes an ISR's own bus
+traffic identifiable as such in a golden trace:
+
+```text
+enter pin=27 depth=1 fires=1
+gpio.write pin=2 value=1      <- this happened inside the handler
+exit pin=27 depth=0
+```
+
+`depth` is the nesting depth, so a handler that triggers itself is visible
+rather than merely recursive. `fires` counts invocations and survives a
+re-arm. A handler may detach itself: the pointer is taken before the call.
+
+There is no interrupt context here, so a handler can do anything a sketch
+can do — `Serial.print` included, which is not true on silicon.
 
 ### Clock Port
 
@@ -622,13 +698,41 @@ sticky flags set when a queue had to drop bytes, so a test checks once at
 the end rather than after every push. Queues default to 1 KB each and
 `setRxBufferSize` / `setTxBufferSize` change that.
 
+**Watching instead of polling.** `setActivityHook` fires synchronously,
+before `write()` returns, which is what keeps UART traffic in its place
+among the GPIO and SPI events around it — a drain from `kPreLoop` can tell
+you what was sent but not when. Six events on one slot: `kUartBegin` /
+`kUartEnd` / `kUartConfig` carry no bytes, `kUartTx` carries the bytes the
+queue accepted, `kUartRx` the bytes the sketch consumed with `read()`, and
+`kUartRxDiscard` the bytes `flush()` dropped unread, so a trace does not
+lose them silently. A driver's own `readTx` / `pushRx` are not reported —
+those are its side of the wire.
+
+The hook is called with **no lock held**, so a driver can answer straight
+from the notification:
+
+```cpp
+void onActivity(HostUart::ActivityEvent ev, HostUart &uart,
+                const uint8_t *data, size_t len, void *user)
+{
+    if (ev == HostUart::kUartTx && looksLikeAT(data, len)) {
+        uart.pushRx("OK\r\n");   // queued before print() returns
+    }
+}
+```
+
+Bytes still enter the transmit queue when a hook is installed, so watching
+and polling coexist — which also means a driver that does both sees every
+byte twice. Pick one.
+
 **Answering inside one iteration.** A sketch that writes a command and
 reads the reply before returning from `loop()` — every AT-command driver
 does this — cannot be served from `kPreLoop`, because the reply would
-arrive an iteration too late. It is serviceable through the clock port
-instead: `Stream::readBytes` waits via `clockWaitMicros`, so a driver that
-has overridden the wait can drain tx and push rx from inside the sketch's
-own blocking read. `tests/runtime/uart_buffer` does it both ways.
+arrive an iteration too late. Either the activity hook above answers it
+before `write()` returns, or the clock port does: `Stream::readBytes` waits
+via `clockWaitMicros`, so a driver that has overridden the wait can drain
+tx and push rx from inside the sketch's own blocking read.
+`tests/runtime/uart_buffer` does it all three ways.
 
 **Not `HardwareSerial`.** On real silicon `Serial`, `Serial1`, and USB CDC
 are all one class, but that class describes a peripheral this core does
@@ -642,7 +746,8 @@ Not modelled: baud timing (bytes appear the instant they are written),
 framing, parity, break detection, flow control.
 
 Worked examples: `tests/runtime/lifecycle_hook`, `tests/runtime/clock_hook`,
-and `tests/runtime/uart_buffer` for one port each, and
+`tests/runtime/interrupt_hook`, and `tests/runtime/uart_buffer` for one
+port each, and
 `tests/runtime/accept_emu_tick` for all of them at once — a virtual-clock
 tick model driving an ordinary debounce + AT-command sketch that was not
 written for it.
@@ -719,6 +824,7 @@ and log console separate.
 - `cores/host/HostLifecycle.{h,cpp}`: the four points around the Arduino thunk (see [Lifecycle Port](#lifecycle-port)).
 - `cores/host/HostClock.{h,cpp}`: the one place the core reads the clock and the one place it waits (see [Clock Port](#clock-port)).
 - `cores/host/HostUart.{h,cpp}`: `Serial1` / `Serial2`, the device-facing UARTs (see [Device UARTs](#device-uarts)).
+- `cores/host/HostInterrupt.{h,cpp}`: what `attachInterrupt` registered, and the port that invokes it (see [Interrupt Port](#interrupt-port)).
 - `libraries/SPI/`, `libraries/Wire/`: bundled `SPI` / `Wire` with the SPI and I²C halves of the same port.
 - `cores/host/main.cpp`: weak `main()` that calls `setup()` once and then `loop()` until the runtime requests shutdown.
 - `scripts/bump_version.py`: updates the `version=` entry in `platform.txt` and the host platform versions in `libraries/Host/examples/*/*/sketch.yaml`.
