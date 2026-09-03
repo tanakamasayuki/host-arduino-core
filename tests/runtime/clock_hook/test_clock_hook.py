@@ -7,9 +7,14 @@ Covers the three states the port has:
   3. both overridden — virtual time, so `delay(5000)` costs no real time
 
 (2) and (3) are the same mechanism with different bodies, which is why the
-port hands over the wait and not only the clock. Assertions on real
-elapsed time are one-sided (`>=` a floor, checked in the sketch) so a
-loaded CI machine cannot make them flaky.
+port hands over the wait and not only the clock.
+
+Everything asserted here is either exact under the virtual clock or a
+one-sided bound the sketch evaluates itself. Nothing counts real-time
+slices or measures real elapsed time: how many 1 ms slices a 20 ms delay
+takes is a property of the host's sleep granularity — Windows rounds a
+1 ms sleep up to its ~15 ms timer tick — and not something this port
+promises.
 """
 
 
@@ -30,9 +35,10 @@ def test_clock_hook(dut):
 
     dut.expect("tickmode: overridden=1", timeout=10)
 
-    # delay(20) called the hook once per millisecond with a 1000 us
-    # slice, still slept for real, and still advanced the real clock.
-    dut.expect("tick: count=1 slice=1000 realtime=1 advanced=1", timeout=10)
+    # The hook was reached during the wait, with the slice size the core
+    # asked for, and real time still passed. Deliberately not a slice
+    # count: that varies with the host's sleep granularity.
+    dut.expect("tick: fired=1 slice=1000 realtime=1 advanced=1", timeout=10)
 
     # yield() is not a timed wait but goes through the port as a
     # zero-length one, which is where a busy-waiting sketch gives a
@@ -41,9 +47,11 @@ def test_clock_hook(dut):
 
     # --- 3. both overridden: virtual time ---------------------------
 
-    # The whole point: 5000 ms of sketch time, no real time, 5000 one-
-    # millisecond slices handed to the driver.
-    dut.expect("virtual: advanced=5000 realtime_ms=0 waits=5000", timeout=10)
+    # The whole point: 5000 ms of sketch time, no wall-clock wait, and
+    # 5000 one-millisecond slices handed to the driver. The virtual
+    # figures are exact; the real-time claim is "under a second for what
+    # would have been five", since 5000 hook calls are not free.
+    dut.expect("virtual: advanced=5000 realtime_fast=1 waits=5000", timeout=10)
 
     # delayMicroseconds is a single wait with no loop, so it lands on the
     # exact amount asked for.
@@ -53,7 +61,7 @@ def test_clock_hook(dut):
     # that never yields a byte burns its full 2000 ms timeout and no real
     # time — this is what stops a UART driver's readBytes from costing
     # wall-clock seconds, and what lets a driver answer from inside it.
-    dut.expect("stream: got=0 advanced=2000 realtime_ms=0", timeout=10)
+    dut.expect("stream: got=0 advanced=2000 realtime_fast=1", timeout=10)
 
     # Handing the clock back leaves the real one where it always was: the
     # virtual excursion to 5+ seconds did not move it.

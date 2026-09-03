@@ -1,4 +1,13 @@
 // Exercises xSemaphoreCreateMutex / Take / Give and binary/counting semaphores.
+//
+// What is being verified is that the mutex loses no updates: 3 tasks x 1000
+// increments must come out as exactly 3000. How long that takes is not part
+// of the claim, and it varies enormously — each blocked `xSemaphoreTake` is
+// a condition-variable wait, so 9000 contended lock/unlock pairs on a
+// throttled two-core CI runner can take orders of magnitude longer than on
+// a developer machine. The budget is therefore generous, and the wait
+// reports whether it ran out so a slow runner is never mistaken for a lost
+// update.
 
 #include <Arduino.h>
 #include "freertos/FreeRTOS.h"
@@ -34,10 +43,19 @@ void setup() {
     xTaskCreate(incrementer, "b", 4096, nullptr, 1, nullptr);
     xTaskCreate(incrementer, "c", 4096, nullptr, 1, nullptr);
 
+    // 30 s, not 5: see the note at the top of this file. Waiting through
+    // the real clock rather than `delay()` on purpose — `delay()` returns
+    // immediately once the runtime is shutting down, which would turn this
+    // into a hot spin competing with the very tasks it is waiting for.
     const uint32_t t0 = millis();
-    while (g_done_workers.load() < 3 && (millis() - t0) < 5000) {
-        delay(10);
+    while (g_done_workers.load() < 3 && (millis() - t0) < 30000) {
+        HostArduino::clockRealWaitMicros(10000);
     }
+    const int done = g_done_workers.load();
+    Serial.print("workers_done=");
+    Serial.println(done);
+    Serial.print("wait_timeout=");
+    Serial.println(done < 3 ? 1 : 0);
     Serial.print("shared=");
     Serial.println(g_shared);
 

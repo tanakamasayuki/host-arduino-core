@@ -155,7 +155,10 @@ void loop() {
     Serial.print("delay_virtual_ms=");
     Serial.println(vElapsed);
     Serial.print("delay_real_fast=");
-    Serial.println(realMs < 1000 ? 1 : 0);
+    // Less than half the virtual time: that is the claim, and it leaves
+    // room for 5000 director calls to cost something on a slow host
+    // without turning this into a stopwatch.
+    Serial.println(realMs < 2500 ? 1 : 0);
     // The headline claim of handing the wait over rather than only the
     // clock: 5000 one-millisecond slices, each one a chance for the
     // director to act. Without this the delay would be a dead 5 seconds

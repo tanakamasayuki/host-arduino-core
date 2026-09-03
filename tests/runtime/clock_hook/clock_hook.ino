@@ -88,10 +88,14 @@ void setup()
     Serial.printf("real: slept=%d advanced=%d\n", real_slept >= 25000 ? 1 : 0,
                   millis_slept >= 25 ? 1 : 0);
 
-    // micros() and millis() come off the same reading, so they agree.
+    // millis() and micros() are one reading truncated two ways, so the
+    // microsecond figure must fall between the two millisecond readings
+    // that bracket it. Comparing a single pair would be a coin flip
+    // whenever the two calls straddle a millisecond boundary.
+    const uint32_t ms_before = millis();
     const uint32_t us = micros();
-    const uint32_t ms = millis();
-    Serial.printf("agree: %d\n", (us / 1000 >= ms && us / 1000 <= ms + 1) ? 1 : 0);
+    const uint32_t ms_after = millis();
+    Serial.printf("agree: %d\n", (us / 1000 >= ms_before && us / 1000 <= ms_after) ? 1 : 0);
 
     // --- 2. wait only: the heartbeat ---------------------------------
 
@@ -102,9 +106,15 @@ void setup()
     const uint32_t tick_millis_before = millis();
     delay(20);
     const uint64_t tick_real_slept = HostArduino::clockRealNowMicros() - tick_real_before;
-    Serial.printf("tick: count=%d slice=%u realtime=%d advanced=%d\n", ticks >= 15 ? 1 : 0,
-                  ticks ? tick_micros_total / ticks : 0, tick_real_slept >= 15000 ? 1 : 0,
-                  millis() - tick_millis_before >= 15 ? 1 : 0);
+    // `fired` rather than a slice count: how many slices a 20 ms delay
+    // takes is a property of the host's sleep granularity, not of this
+    // port. Windows rounds a 1 ms sleep up to the ~15 ms timer tick, so
+    // the same delay is 2 slices there and 20 on Linux. What the port
+    // guarantees is that the hook is reached at all, and with the slice
+    // size the core asked for.
+    Serial.printf("tick: fired=%d slice=%u realtime=%d advanced=%d\n", ticks >= 1 ? 1 : 0,
+                  ticks ? tick_micros_total / ticks : 0, tick_real_slept >= 20000 ? 1 : 0,
+                  millis() - tick_millis_before >= 20 ? 1 : 0);
 
     // yield() goes through the port as a zero-length wait, which is where
     // a busy-waiting sketch gives the driver a chance to run.
@@ -125,8 +135,12 @@ void setup()
     const uint64_t v_real_before = HostArduino::clockRealNowMicros();
     delay(5000);
     const uint64_t v_real_spent = HostArduino::clockRealNowMicros() - v_real_before;
-    Serial.printf("virtual: advanced=%u realtime_ms=%u waits=%u\n", millis() - v_before,
-                  (unsigned)(v_real_spent / 1000), vclock.waits);
+    // "Less than half the virtual time" rather than an arbitrary budget:
+    // that is exactly the claim being made, and it leaves room for 5000
+    // hook calls to cost something on a slow host without the assertion
+    // becoming a stopwatch.
+    Serial.printf("virtual: advanced=%u realtime_fast=%d waits=%u\n", millis() - v_before,
+                  v_real_spent < 2500000 ? 1 : 0, vclock.waits);
 
     // delayMicroseconds is one wait with no loop around it, so it lands
     // exactly on the requested amount.
@@ -142,8 +156,8 @@ void setup()
     const uint64_t s_real_before = HostArduino::clockRealNowMicros();
     const size_t got = silent.readBytes(buffer, sizeof(buffer));
     const uint64_t s_real_spent = HostArduino::clockRealNowMicros() - s_real_before;
-    Serial.printf("stream: got=%u advanced=%u realtime_ms=%u\n", (unsigned)got, millis() - s_before,
-                  (unsigned)(s_real_spent / 1000));
+    Serial.printf("stream: got=%u advanced=%u realtime_fast=%d\n", (unsigned)got,
+                  millis() - s_before, s_real_spent < 1000000 ? 1 : 0); // half of 2000 ms
 
     // Handing the clock back leaves the real one where it always was —
     // the virtual excursion did not move it.

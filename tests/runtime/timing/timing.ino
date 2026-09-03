@@ -2,27 +2,41 @@
 //
 // Verifies monotonicity and that delay(N) actually waits at least N ms
 // (with a generous upper bound to avoid flakiness on loaded hosts).
+//
+// Every check prints its own name on failure, and the summary repeats the
+// names, because these are the assertions most likely to fail only on a
+// particular CI runner — a count alone leaves nobody able to tell an
+// over-tight upper bound from a `delay` that returned early.
+//
+// `stopping` is reported for the same reason: `delay()` returns
+// immediately once the runtime is shutting down, so a dropped TCP
+// connection turns every lower bound here into a failure that has nothing
+// to do with timing.
 
 #include <Arduino.h>
 
 static int g_pass = 0;
 static int g_total = 0;
+static String g_failed;
 
-#define EXPECT_TRUE(name, cond)    \
-    do                             \
-    {                              \
-        ++g_total;                 \
-        if (cond)                  \
-        {                          \
-            ++g_pass;              \
-            Serial.print("PASS "); \
-            Serial.println(name);  \
-        }                          \
-        else                       \
-        {                          \
-            Serial.print("FAIL "); \
-            Serial.println(name);  \
-        }                          \
+#define EXPECT_TRUE(name, cond)      \
+    do                               \
+    {                                \
+        ++g_total;                   \
+        if (cond)                    \
+        {                            \
+            ++g_pass;                \
+            Serial.print("PASS ");   \
+            Serial.println(name);    \
+        }                            \
+        else                         \
+        {                            \
+            if (g_failed.length())   \
+                g_failed += ",";     \
+            g_failed += name;        \
+            Serial.print("FAIL ");   \
+            Serial.println(name);    \
+        }                            \
     } while (0)
 
 void setup()
@@ -49,6 +63,14 @@ void setup()
 
     EXPECT_TRUE("monotonic_ms", millis() >= t1_ms);
     EXPECT_TRUE("monotonic_us", micros() >= t2_us);
+
+    // Reported before the summary so a failure message can name both the
+    // checks that failed and whether the runtime was already shutting
+    // down, which would explain every lower bound at once.
+    Serial.print("stopping=");
+    Serial.println(HostArduino::runtimeShouldStop() ? 1 : 0);
+    Serial.print("failed=");
+    Serial.println(g_failed.length() ? g_failed : String("none"));
 
     Serial.print("TEST done ");
     Serial.print(g_pass);
