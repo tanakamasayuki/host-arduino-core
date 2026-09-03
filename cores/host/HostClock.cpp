@@ -63,8 +63,22 @@ void clockWaitMicros(uint32_t micros)
 
 uint64_t clockRealNowMicros()
 {
-    const auto delta = std::chrono::steady_clock::now() - epoch();
-    return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(delta).count());
+    // Two statements rather than `now() - epoch()`, and not a style
+    // preference: the order in which the operands of `-` are evaluated is
+    // unspecified, and `epoch()` latches the start point the first time it
+    // runs. Evaluate `now()` first and the epoch is latched *after* the
+    // reading it is supposed to precede, the difference comes out
+    // negative, and the cast below turns the very first clock reading a
+    // process makes into roughly 2^64. clang ordered it that way and gcc
+    // did not, so this passed on Linux and Windows and produced garbage
+    // millis() on macOS.
+    const auto start = epoch();
+    const auto now = std::chrono::steady_clock::now();
+    if (now <= start) {
+        return 0;
+    }
+    return static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::microseconds>(now - start).count());
 }
 
 void clockRealWaitMicros(uint32_t micros)

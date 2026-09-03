@@ -47,6 +47,14 @@ void setup()
     const uint32_t t0_ms = millis();
     const uint32_t t0_us = micros();
 
+    // The clock counts from the first reading a process makes, so that
+    // reading is near zero. This is here as its own named check because
+    // getting it wrong poisons every elapsed-time figure below: a bad
+    // first `millis()` made `delay50_upper` fail too, on macOS only,
+    // when `clockRealNowMicros` latched its epoch after the reading
+    // instead of before it.
+    EXPECT_TRUE("first_reading_sane", t0_ms < 1000 && t0_us < 1000000UL);
+
     EXPECT_TRUE("micros>=millis*1000-1", t0_us + 1000 >= t0_ms * 1000UL);
 
     delay(50);

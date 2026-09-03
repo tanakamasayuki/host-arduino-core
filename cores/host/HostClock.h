@@ -48,9 +48,12 @@
 
 namespace HostArduino {
 
-// Microseconds since the first time the clock was read. `millis` and
-// `micros` are this value truncated to 32 bits, so they wrap the way they
-// do on real silicon.
+// Microseconds since the first time the clock was read — so the first
+// reading a process makes is near zero, and `millis()` starts from there
+// rather than from some arbitrary boot instant. `millis` and `micros` are
+// this value truncated to 32 bits, so they wrap the way they do on real
+// silicon. An override is expected to be monotonic; it is never asked to
+// go backwards.
 using ClockNowHook = uint64_t (*)(void *user);
 
 // Wait roughly `micros` microseconds. Called with 0 from `yield()`, which
