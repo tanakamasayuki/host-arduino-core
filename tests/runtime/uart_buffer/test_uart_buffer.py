@@ -4,13 +4,15 @@
 directions are queues program code drives, so a test owns the whole
 conversation with the device it is pretending to be.
 
-The two servicing points a real driver needs are both covered:
+The three servicing points a real driver needs are all covered:
 
   - from `kPreLoop`, for a sketch that sends now and reads the reply in a
     later iteration
   - from inside the clock port's wait, for a sketch that sends and reads
-    the reply before returning from `loop()` — the AT-command shape, and
-    the case that is only serviceable because the wait is overridable
+    the reply before returning from `loop()` — the AT-command shape
+  - from the activity hook, which fires before `write()` returns, so the
+    answer is queued before the sketch's next statement and UART traffic
+    keeps its place among the GPIO and SPI events around it
 
 CR and LF are reported as '.' so one event stays on one line.
 """
@@ -58,6 +60,26 @@ def test_uart_buffer(dut):
 
     # Serial2 is a separate instance with its own queues.
     dut.expect("serial2: num=2 baud=115200 waiting=3 other=4", timeout=10)
+
+    # The activity hook: the answer was pushed from inside the TX
+    # notification, so all four bytes of "OK\r\n" are already readable
+    # before print() returned. This is also the deadlock check — the core
+    # must not hold its mutex across the callback, or pushRx would hang.
+    dut.expect("activity: answered=4", timeout=10)
+    dut.expect("activity: first=O trace=5 overflow=0", timeout=10)
+    for line in (
+        "# begin len=0",
+        "# tx len=4 AT[.][.]",
+        "# rx len=1 O",
+        # flush() names the bytes it dropped rather than losing them
+        # silently: what was left of the reply plus the two just pushed.
+        "# discard len=5 K[.][.]XY",
+        "# config len=0",
+    ):
+        dut.expect(line, timeout=10)
+
+    # Releasing the slot stops the notifications; the queues keep working.
+    dut.expect("activity: cleared_delta=0 waiting=5", timeout=10)
 
     # A re-begin() is a clean conversation: both queues emptied.
     dut.expect("reset: begun=1 waiting=0 available=0 total=0", timeout=10)

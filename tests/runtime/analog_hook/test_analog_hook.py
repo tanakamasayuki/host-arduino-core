@@ -21,6 +21,16 @@ def test_analog_hook(dut):
     # once it is gone.
     dut.expect("adc: hooked=1024 restored=2048", timeout=10)
 
+    # The millivolt reading has its own hook and its own injected value.
+    # The raw reading is unaffected by it: neither is derived from the
+    # other, because there is no attenuation or Vref model to derive with.
+    dut.expect("mv: hooked=3300 raw=2048 restored=1650", timeout=10)
+
+    # Width changes are observable in call order. `analogSetWidth` is the
+    # legacy spelling of the same knob and reports identically — a trace
+    # records the width, not which name set it.
+    dut.expect("width: events=2 first=9 last=11 now=10", timeout=10)
+
     # The backlight: one attach, one duty write, both announced.
     dut.expect("backlight: attach=1 write=1 duty=128 events=2", timeout=10)
 

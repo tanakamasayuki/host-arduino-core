@@ -10,9 +10,9 @@ Tests are grouped by area:
 tests/
   runtime/   # host-only — Arduino runtime basics (smoke, timing, print_api,
              #             lifecycle_hook, clock_hook,
-             #             uart_buffer, gpio_hook, analog_hook,
-             #             spi_hook, wire_hook, bus_trace,
-             #             accept_emu_tick)
+             #             uart_buffer, gpio_hook, interrupt_hook,
+             #             analog_hook, spi_hook, wire_hook,
+             #             bus_trace, accept_emu_tick)
   storage/   # host-only — LittleFS/SPIFFS/FFat/SD facades (fs)
   network/   # host-only — IPAddress / UDP / TCP / TLS / HTTPClient
   interop/   # host + real ESP32 — implementation-parity checks (smoke, wifi_connect, https_get, ...)

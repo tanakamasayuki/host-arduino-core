@@ -72,6 +72,28 @@ void onAnalogWrite(HostArduino::AnalogWriteEvent event, const HostArduino::Analo
     }
 }
 
+// The millivolt reading has its own hook, because it is an independent
+// quantity here — the core derives neither from the other, having no
+// attenuation or Vref model to derive with.
+uint32_t onMilliVolts(uint8_t pin, uint32_t held, void *user)
+{
+    (void)pin;
+    (void)user;
+    return held * 2; // a 2:1 divider the sketch is unaware of
+}
+
+// Read-side configuration, as its own ordered stream. Both spellings of
+// the width knob land here.
+uint8_t width_events = 0;
+uint8_t last_width = 0;
+
+void onReadConfig(uint8_t bits, void *user)
+{
+    (void)user;
+    ++width_events;
+    last_width = bits;
+}
+
 // A model that computes an ADC reading at read time instead of pushing one
 // with setAnalogValue: a divider that halves whatever is on the pin.
 uint16_t onAnalogRead(uint8_t pin, uint16_t held, void *user)
@@ -108,6 +130,26 @@ void setup()
     const uint16_t hooked = analogRead(PIN_BATTERY);
     HostArduino::setAnalogReadHook(nullptr);
     Serial.printf("adc: hooked=%u restored=%u\n", hooked, analogRead(PIN_BATTERY));
+
+    // The millivolt reading goes through its own hook, and the raw hook is
+    // untouched by it — the two quantities stay independent.
+    HostArduino::setAnalogMilliVoltsHook(onMilliVolts);
+    const uint32_t mv_hooked = analogReadMilliVolts(PIN_BATTERY);
+    const uint16_t raw_while_mv_hooked = analogRead(PIN_BATTERY);
+    HostArduino::setAnalogMilliVoltsHook(nullptr);
+    Serial.printf("mv: hooked=%u raw=%u restored=%u\n", mv_hooked, raw_while_mv_hooked,
+                  analogReadMilliVolts(PIN_BATTERY));
+
+    // Width changes are observable in call order, and the legacy spelling
+    // reports the same way — a trace records the width, not the name.
+    HostArduino::setAnalogReadConfigHook(onReadConfig);
+    analogReadResolution(9);
+    const uint8_t after_resolution = last_width;
+    analogSetWidth(11);
+    HostArduino::setAnalogReadConfigHook(nullptr);
+    analogReadResolution(10);
+    Serial.printf("width: events=%u first=%u last=%u now=%u\n", width_events, after_resolution,
+                  last_width, HostArduino::analogReadBits());
 
     // --- write direction: the backlight ------------------------------
 

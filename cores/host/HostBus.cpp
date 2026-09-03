@@ -154,6 +154,10 @@ HostArduino::AnalogWriteHook analog_write_hook = nullptr;
 void *analog_write_hook_user = nullptr;
 HostArduino::AnalogReadHook analog_read_hook = nullptr;
 void *analog_read_hook_user = nullptr;
+HostArduino::AnalogMilliVoltsHook analog_mv_hook = nullptr;
+void *analog_mv_hook_user = nullptr;
+HostArduino::AnalogReadConfigHook analog_read_config_hook = nullptr;
+void *analog_read_config_hook_user = nullptr;
 
 bool analogInRange(int pin)
 {
@@ -292,12 +296,28 @@ void setAnalogReadHook(AnalogReadHook hook, void *user)
     analog_read_hook_user = user;
 }
 
+void setAnalogMilliVoltsHook(AnalogMilliVoltsHook hook, void *user)
+{
+    analog_mv_hook = hook;
+    analog_mv_hook_user = user;
+}
+
+void setAnalogReadConfigHook(AnalogReadConfigHook hook, void *user)
+{
+    analog_read_config_hook = hook;
+    analog_read_config_hook_user = user;
+}
+
 void clearAnalogHooks()
 {
     analog_write_hook = nullptr;
     analog_write_hook_user = nullptr;
     analog_read_hook = nullptr;
     analog_read_hook_user = nullptr;
+    analog_mv_hook = nullptr;
+    analog_mv_hook_user = nullptr;
+    analog_read_config_hook = nullptr;
+    analog_read_config_hook_user = nullptr;
 }
 
 const AnalogOut &analogOut(int pin)
@@ -370,18 +390,26 @@ uint16_t analogRead(uint8_t pin)
 
 uint32_t analogReadMilliVolts(uint8_t pin)
 {
-    return tables().millivolts[pin];
+    const uint32_t held = tables().millivolts[pin];
+    if (analog_mv_hook) {
+        return analog_mv_hook(pin, held, analog_mv_hook_user);
+    }
+    return held;
 }
 
 void analogReadResolution(uint8_t bits)
 {
     tables().read_bits = bits;
+    if (analog_read_config_hook) {
+        analog_read_config_hook(bits, analog_read_config_hook_user);
+    }
 }
 
 void analogSetWidth(uint8_t bits)
 {
-    // Legacy spelling of the same knob on arduino-esp32.
-    tables().read_bits = bits;
+    // Legacy spelling of the same knob on arduino-esp32, reported the same
+    // way — a trace records the width, not which name set it.
+    analogReadResolution(bits);
 }
 
 // --- Analog output: the LEDC family ----------------------------------

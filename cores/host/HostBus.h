@@ -216,10 +216,34 @@ using AnalogWriteHook = void (*)(AnalogWriteEvent event, const AnalogOut &out, v
 // one from.
 using AnalogReadHook = uint16_t (*)(uint8_t pin, uint16_t held, void *user);
 
+// The same for the millivolt reading, as its own hook rather than a flag
+// on the one above: the two are independent quantities here, and folding
+// them together would have changed a signature that is already in use.
+// `held` is what `setAnalogMilliVolts` last injected; the return value is
+// what the sketch sees. The core still derives nothing — there is no
+// attenuation or Vref model behind either reading, which is exactly why
+// both are injected separately.
+using AnalogMilliVoltsHook = uint32_t (*)(uint8_t pin, uint32_t held, void *user);
+
+// Called after `analogReadResolution` / `analogSetWidth` has recorded the
+// new width, with that width. There is no event enum because the width is
+// the only read-side configuration this core has; the two spellings are
+// the same knob, so they are not told apart.
+//
+// This is a second hook rather than an event on `setAnalogWriteHook`, and
+// nothing is lost by that: both are called synchronously on the sketch's
+// thread, so a driver appending to one buffer from both keeps the order.
+// Adding a value to `AnalogWriteEvent` would also have broken every
+// exhaustive `switch` over it that has no `default`.
+using AnalogReadConfigHook = void (*)(uint8_t bits, void *user);
+
 // Hook registration. As with the GPIO half: `nullptr` unregisters, and
 // registering replaces the previous hook.
 void setAnalogWriteHook(AnalogWriteHook hook, void *user = nullptr);
 void setAnalogReadHook(AnalogReadHook hook, void *user = nullptr);
+void setAnalogMilliVoltsHook(AnalogMilliVoltsHook hook, void *user = nullptr);
+void setAnalogReadConfigHook(AnalogReadConfigHook hook, void *user = nullptr);
+// Releases all four slots.
 void clearAnalogHooks();
 
 // Analog output state of `pin`. Out-of-range pins report a zeroed,

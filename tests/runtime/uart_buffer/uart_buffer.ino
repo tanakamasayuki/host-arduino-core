@@ -15,6 +15,11 @@
 //
 // The "modem" here answers AT commands. It knows the protocol; the core
 // knows only that bytes moved.
+//
+// A third servicing point is exercised too: the activity hook, which fires
+// synchronously before `write()` returns. That is the one that keeps UART
+// traffic in order with everything else, and the one a modem can answer
+// from without waiting for anything.
 
 #include <Arduino.h>
 
@@ -87,6 +92,68 @@ void onPhase(HostArduino::LifecyclePhase phase, void *user)
     }
     if (static_cast<ModemModel *>(user)->service(Serial1)) {
         ++preloop_services;
+    }
+}
+
+// --- servicing from the activity hook --------------------------------
+//
+// Fires before `write()` returns, so the answer is queued before the
+// sketch's next statement. No lock is held when this runs, which is what
+// makes calling `pushRx` from inside it legal.
+
+struct UartTrace {
+    char line[16][40] = {{0}};
+    uint8_t count = 0;
+    bool overflowed = false;
+
+    void add(const char *what, const uint8_t *data, size_t len)
+    {
+        if (count >= 16) {
+            overflowed = true;
+            return;
+        }
+        char text[24] = {0};
+        const size_t copy = len < sizeof(text) - 1 ? len : sizeof(text) - 1;
+        for (size_t i = 0; i < copy; ++i) {
+            const char c = static_cast<char>(data[i]);
+            text[i] = (c == '\r' || c == '\n') ? '.' : c;
+        }
+        snprintf(line[count], sizeof(line[0]), "%s len=%u %s", what, (unsigned)len, text);
+        ++count;
+    }
+};
+
+UartTrace utrace;
+bool answer_from_hook = false;
+
+void onActivity(HostUart::ActivityEvent event, HostUart &uart, const uint8_t *data, size_t len,
+                void *user)
+{
+    (void)user;
+    switch (event) {
+    case HostUart::kUartBegin:
+        utrace.add("begin", nullptr, 0);
+        break;
+    case HostUart::kUartEnd:
+        utrace.add("end", nullptr, 0);
+        break;
+    case HostUart::kUartConfig:
+        utrace.add("config", nullptr, 0);
+        break;
+    case HostUart::kUartTx:
+        utrace.add("tx", data, len);
+        // Answering from the notification itself. This would deadlock if
+        // the core held its mutex across the callback.
+        if (answer_from_hook) {
+            uart.pushRx("OK\r\n");
+        }
+        break;
+    case HostUart::kUartRx:
+        utrace.add("rx", data, len);
+        break;
+    case HostUart::kUartRxDiscard:
+        utrace.add("discard", data, len);
+        break;
     }
 }
 
@@ -185,6 +252,38 @@ void setup()
     Serial2.print("two");
     Serial.printf("serial2: num=%u baud=%u waiting=%u other=%u\n", Serial2.uartNum(),
                   (unsigned)Serial2.baudRate(), (unsigned)Serial2.txAvailable(),
+                  (unsigned)Serial1.txAvailable());
+
+    // --- the activity hook -------------------------------------------
+    //
+    // The third servicing point. Unlike the two above it needs no wait and
+    // no next iteration: the answer is queued before `print()` returns.
+    Serial1.end();
+    Serial1.clearOverflow();
+    Serial1.setRxBufferSize(HostUart::kDefaultBufferSize);
+    Serial1.setTxBufferSize(HostUart::kDefaultBufferSize);
+    Serial1.setActivityHook(onActivity);
+    answer_from_hook = true;
+    Serial1.begin(9600, SERIAL_8N1, PIN_RX, PIN_TX);
+    Serial1.print("AT\r\n");
+    // Already there — no wait, no loop() iteration.
+    Serial.printf("activity: answered=%d\n", Serial1.available());
+    const int first = Serial1.read();
+    answer_from_hook = false;
+    Serial1.pushRx("XY");
+    Serial1.flush();
+    Serial1.updateBaudRate(19200);
+    Serial.printf("activity: first=%c trace=%u overflow=%d\n", first, utrace.count,
+                  utrace.overflowed ? 1 : 0);
+    for (uint8_t i = 0; i < utrace.count; ++i) {
+        Serial.printf("# %s\n", utrace.line[i]);
+    }
+
+    // Releasing the slot stops the notifications; the queues keep working.
+    Serial1.clearActivityHook();
+    const uint8_t before_uart_clear = utrace.count;
+    Serial1.print("Z");
+    Serial.printf("activity: cleared_delta=%u waiting=%u\n", utrace.count - before_uart_clear,
                   (unsigned)Serial1.txAvailable());
 
     // Reset for the loop-side section.

@@ -54,7 +54,7 @@ ESP32 拡張かを示します。
 | `Printable` | ✅ | Arduino | |
 | `Stream`（`timedRead` / `readBytes` / `setTimeout` / `find` / `parseInt`） | ✅ | Arduino | タイムアウトが[時計口](#時計口)経由。仮想時計に追従し、ブロッキング読み出しの内側からテスト側が応答を積める |
 | `HardwareSerial` / `Serial` | ✅ | Arduino | localhost の TCP ソケット越しに公開 |
-| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`。コンソールと分離したデバイス向け UART。送受信ともプログラムが駆動するオンメモリのキュー（[デバイス UART](#デバイス-uart)）。`HardwareSerial` 互換は取らない（コンソール側クラスの別名のまま） |
+| `Serial1` / `Serial2` | ✅ | ESP32 | `cores/host/HostUart.h`。コンソールと分離したデバイス向け UART。送受信ともプログラムが駆動するオンメモリのキューで、polling と、`write()` が戻る前に発火する同期 activity フックのどちらでも駆動できる（[デバイス UART](#デバイス-uart)）。`HardwareSerial` 互換は取らない（コンソール側クラスの別名のまま） |
 
 ### ファイルシステム
 
@@ -97,7 +97,7 @@ ESP32 拡張かを示します。
 | API | 状況 | 出自 | 備考 |
 |-----|------|------|------|
 | `pinMode` / `digitalWrite` / `digitalRead` | ✅ | Arduino | ピンの値を保持する。`digitalRead` は直前に書いた値を返し、`INPUT_PULLUP` は HIGH を読む。書き込みは任意のフックへ通知される（[バス観測口](#バス観測口)）。電気的挙動とタイミングは再現しない |
-| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | `HostArduino::setAnalogValue` / `setAnalogMilliVolts` で差し込んだ値、またはアナログ読み出しフックが計算した値を返す（アナログ側の応答方向）。分解能は記録するだけで適用しない — 差し込んだ値を勝手にスケールするのは基準電圧を捏造することになる |
+| `analogRead` / `analogReadMilliVolts` / `analogReadResolution` / `analogSetWidth` | ✅ | Arduino / ESP32 | `HostArduino::setAnalogValue` / `setAnalogMilliVolts` で差し込んだ値、または読み出しフックが計算した値を返す（生値と mV にそれぞれフックがあり、分解能変更は 3 本目に届く）。分解能は記録するだけで適用しない — 差し込んだ値を勝手にスケールするのは基準電圧を捏造することになる |
 | `analogWrite` / `analogWriteFrequency` / `analogWriteResolution` | ✅ | Arduino / ESP32 | LEDC 経由。未 attach のピンは arduino-esp32 と同じくグローバル既定値で初回に attach される。呼び出しはすべてピン・チャンネル・周波数・分解能・デューティ付きで `HostArduino::setAnalogWriteHook` へ通知される |
 | `ledcAttach` / `ledcAttachChannel` / `ledcWrite` / `ledcWriteChannel` / `ledcRead` / `ledcReadFreq` / `ledcChangeFrequency` / `ledcDetach` / `ledcWriteTone` / `ledcWriteNote` / `ledcOutputInvert` / `ledcFade*` | ✅ | ESP32 | ピンごとの状態と同じフック。実機が拒否する呼び出し（未 attach ピンへのデューティ書き込み、二重 attach、20 bit を超える分解能、周波数 0）は同じく拒否し、イベントも出さない。チャンネルは 16 本（classic ESP32 の番号付け）。fade は即座に目標値へ到達し（`max_fade_time_ms` は無視、両端点を通知）。2.x の `ledcSetup` / `ledcAttachPin` は**提供しない** — arduino-esp32 3.x が削除済みで、チャンネル指定の書き込みは `ledcWriteChannel` が担う |
 | `dacWrite` / `dacDisable` | ✅ | ESP32 | チャンネルと周波数を持たない形で同じピンごとの枠に記録されるので、PWM と DAC が 1 本のトレースに乗る。ピンの制限は掛けない（どのピンが DAC かはバリアント固有の情報で、コアは持たない） |
@@ -106,7 +106,7 @@ ESP32 拡張かを示します。
 | `analogContinuous*` | 🔲 | ESP32 | 未提供（必要とする具体的なスケッチがまだ無い） |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | `0` を返す |
 | `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
-| `attachInterrupt` / `detachInterrupt` | 🟡 | Arduino | no-op |
+| `attachInterrupt` / `attachInterruptArg` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`。登録内容を保持し、外部から `HostArduino::triggerInterrupt(pin)` で呼び出せる（[割り込み口](#割り込み口)）。ピンの電位は監視しないので `digitalWrite` や `setPinValue` は割り込みを生まない — edge の判定は呼ぶ側の仕事。mode は生の値と正規化した `InterruptTrigger` の両方で報告される（生の値が arduino-esp32 と一致しないため） |
 | `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` はライフサイクルフックに届くので、バスの初期化が通信と同じ順序付きトレースに乗る。`Wire1` も提供 |
 | `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで、`begin()` / `end()` / 設定系セッターはライフサイクルフックで取れる。タイミングは再現しない |
 | `Servo` | 🔲 | Arduino | no-op スタブ |
@@ -148,10 +148,10 @@ ESP32 拡張かを示します。
 ```
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
-            clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
-            wire_hook, bus_trace, accept_emu_tick, esp_random,
-            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
-            freertos_task
+            clock_hook, uart_buffer, gpio_hook, interrupt_hook,
+            analog_hook, spi_hook, wire_hook, bus_trace,
+            accept_emu_tick, esp_random, esp_timer, freertos_mutex,
+            freertos_notify, freertos_queue, freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
             tcp_echo, tcp_client, tls_openssl, tls_secure_connect,
@@ -303,9 +303,15 @@ ledcWrite(PIN_BL, 200);        // kAnalogWrite, duty 200 — ここで点灯
   選び方なので、トレースに出るチャンネルは実機で割り当てられるものと一致します。
 - 応答方向: `HostArduino::setAnalogValue(pin, raw)` と
   `setAnalogMilliVolts(pin, mv)` が `analogRead` / `analogReadMilliVolts` の
-  返す値になります。読み出し時に計算したい模型向けに `setAnalogReadHook` も
-  あります。2 つの値を別々に差し込む形にしているのは意図的で、一方から他方を
-  導くには減衰器と Vref の模型が必要になり、コアはそれを持ちません。
+  返す値になります。読み出し時に計算したい模型向けにそれぞれフックがあります
+  （`setAnalogReadHook` と `setAnalogMilliVoltsHook`）。2 つの値を別々に扱う形に
+  しているのは意図的で、一方から他方を導くには減衰器と Vref の模型が必要になり、
+  コアはそれを持ちません。`setAnalogReadConfigHook` は分解能の変更
+  （`analogReadResolution` / `analogSetWidth` は同じノブ）を通知するので、
+  読み出し側の設定も呼び出し順で観測できます。`setAnalogWriteHook` のイベントに
+  足さず別フックにしていますが、それで失われるものはありません — どちらも
+  スケッチのスレッドで同期的に呼ばれるので、複数フックから 1 本のバッファへ
+  追記すれば順序は保たれます。
 - 再現しないもの: 波形、タイミング、タイマの共有。ピンには何も出力されず、
   `digitalRead` が PWM 波形を見ることはなく、duty 128/255 で何かが半分明るく
   なることもありません。fade は即座に目標値へ到達します。
@@ -432,8 +438,8 @@ pwm.write pin=38 duty=200
 ## 拡張口
 
 上のバス観測口は「スケッチがバスに流したもの」をライブラリ側から見る口です。
-テストの土台がスケッチの**横**ではなく**下**に入るために必要な残りを、3 つの
-小さな口が受け持ちます。実行する場所、いまが何時か、話し相手です。いずれも
+テストの土台がスケッチの**横**ではなく**下**に入るために必要な残りを、4 つの
+小さな口が受け持ちます。実行する場所、いつ割り込むか、いまが何時か、話し相手です。いずれも
 1 スロット・1 利用者で、多重化は上の層の仕事です。だからこそ既存のものを
 何も置き換えていません（既存のバスフックは無変更です）。
 
@@ -480,6 +486,73 @@ HostArduino::setLifecycleHook(onPhase, &harness);
 thunk は 2 つとも同じ 4 点を通知します（通常の host ランタイムと、`mode=lgfx`
 および `display` ボードが使う SDL 版）。SDL 版はワーカースレッドで走るため、
 `main` から登録したフックはそちらでは別スレッドで呼ばれます。
+
+### 割り込み口
+
+`cores/host/HostInterrupt.h`。`attachInterrupt` はこれまで no-op だったので、
+ISR 駆動のスケッチはリンクは通るが一度も発火しませんでした。この口は登録内容を
+保持し、外部コードから呼び出せるようにします。
+
+```cpp
+// スケッチ側。無変更、かつ何も知らない
+attachInterrupt(digitalPinToInterrupt(BTN), onButton, FALLING);
+
+// テスト側。線が動いたのを見て、それが合致するかを自分で決める
+if (HostArduino::interruptTrigger(BTN) == HostArduino::kTriggerFalling) {
+    HostArduino::triggerInterrupt(BTN);
+}
+```
+
+**コアは何も判定しません。** ピンの電位を監視せず（`digitalWrite` と
+`HostArduino::setPinValue` は割り込みを生みません）、線の動きを登録 mode と
+照合せず、保留 FIFO もネスト禁止も持ちません。これは意図的です。値の変更・
+ログ・edge 判定・handler 呼び出しの順序は 1 か所が持つべきで、`setPinValue`
+から edge を推測するコアは 2 人目の判定者になってしまいます。
+`interruptTrigger` / `interruptMode` / `interruptSlot` は、呼ぶ側が同じ情報で
+その判定をするために用意されています。
+
+**mode は 2 通りで報告されます。これは重要です。** このコアの生の Arduino 定数は
+arduino-esp32 と一致しません。
+
+| | このコア | arduino-esp32 |
+|---|---|---|
+| `RISING` | 3 | 1 |
+| `FALLING` | 2 | 2 |
+| `CHANGE` | 1 | 3 |
+
+`RISING` と `CHANGE` が入れ替わっているため、数値で照合するコードは「不一致」
+ではなく**静かに「誤って一致」**します。値をそのまま残しているのは、既に観測口を
+渡っているからです（`pinModeOf`、`kAnalogAttach` の payload、既存のゴールデン
+トレース全部）。変更すれば運用中のトレースが壊れます。代わりに、登録はすべて
+正規化した `InterruptTrigger` としても報告されます（`kTriggerRising`、
+`kTriggerFalling`、`kTriggerChange`、`kTriggerLevelLow`、`kTriggerLevelHigh`、
+`kTriggerUnknown`）。これで照合すれば番号の話は一切出てきません。生の値は
+`InterruptSlot::mode` に残るので、呼び出しそのものを検証したいテストも書けます。
+
+`setInterruptHook` は 1 スロットで 4 イベントを通知します。
+
+| イベント | タイミング |
+|---|---|
+| `kInterruptAttach` | `attachInterrupt` / `attachInterruptArg`（再登録も含む） |
+| `kInterruptDetach` | attach 済みピンへの `detachInterrupt` |
+| `kInterruptEnter` | handler を呼ぶ直前 |
+| `kInterruptExit` | handler から戻った直後 |
+
+後ろの 2 つが handler を挟むので、ISR 自身のバス通信がゴールデントレース上で
+「ISR の中のもの」として識別できます。
+
+```text
+enter pin=27 depth=1 fires=1
+gpio.write pin=2 value=1      <- handler の中で起きた
+exit pin=27 depth=0
+```
+
+`depth` はネスト深さなので、自分自身を発火させる handler が単に再帰するのでは
+なく見える形になります。`fires` は呼び出し回数で、再登録を跨いで残ります。
+handler は自分を detach してよく、関数ポインタは呼び出し前に取得されます。
+
+ここには割り込みコンテキストが無いので、handler はスケッチができることは何でも
+できます。`Serial.print` も含まれますが、これは実機では成り立ちません。
 
 ### 時計口
 
@@ -585,12 +658,37 @@ if (sent.startsWith("AT")) Serial1.pushRx("OK\r\n");
 フラグで、push ごとではなく最後に 1 回確認すれば足ります。キューは既定で各 1KB、
 `setRxBufferSize` / `setTxBufferSize` で変更できます。
 
+**polling ではなく監視する。** `setActivityHook` は `write()` が戻る前に同期的に
+発火します。これが UART の通信を周囲の GPIO / SPI イベントと同じ順序に保つもので、
+`kPreLoop` からの drain では「何を送ったか」は分かっても「いつ送ったか」が
+分かりません。1 スロットで 6 イベント: `kUartBegin` / `kUartEnd` / `kUartConfig`
+はバイトを持たず、`kUartTx` はキューが受理したバイト列、`kUartRx` はスケッチが
+`read()` で消費したバイト列、`kUartRxDiscard` は `flush()` が未読のまま捨てた
+バイト列です（トレースから黙って消えないように）。テスト側自身の `readTx` /
+`pushRx` は通知しません — それは線のこちら側の行為です。
+
+このフックは**ロックを保持しない状態で**呼ばれるので、通知の中から直接応答できます。
+
+```cpp
+void onActivity(HostUart::ActivityEvent ev, HostUart &uart,
+                const uint8_t *data, size_t len, void *user)
+{
+    if (ev == HostUart::kUartTx && looksLikeAT(data, len)) {
+        uart.pushRx("OK\r\n");   // print() が戻る前に積まれる
+    }
+}
+```
+
+フックを入れてもバイトは送信キューにも入るので、監視と polling は共存します。
+その代わり両方やると同じバイトを 2 回見ます。どちらか一方を使ってください。
+
 **1 周の中で応答する。** コマンドを書いて `loop()` を抜ける前に応答を読む
 スケッチ（AT コマンド系ドライバはすべてこれ）は `kPreLoop` からは応答できません。
-返答が 1 周遅れて届くためです。代わりに時計口で応答できます。
-`Stream::readBytes` が `clockWaitMicros` で待つので、待ちを上書きしたテスト側が
-スケッチ自身のブロッキング読み出しの内側から tx を抜き rx へ積めます。
-`tests/runtime/uart_buffer` が両方の形を実演しています。
+返答が 1 周遅れて届くためです。上の activity フックが `write()` の戻り前に応答
+するか、時計口で応答するかのどちらかになります。後者は `Stream::readBytes` が
+`clockWaitMicros` で待つので、待ちを上書きしたテスト側がスケッチ自身の
+ブロッキング読み出しの内側から tx を抜き rx へ積めます。
+`tests/runtime/uart_buffer` が 3 通りすべてを実演しています。
 
 **`HardwareSerial` 互換は取りません。** 実機では `Serial`・`Serial1`・USB CDC が
 同一クラスですが、そのクラスはこのコアに存在しない周辺機器を記述するためのもので、
@@ -603,7 +701,7 @@ if (sent.startsWith("AT")) Serial1.pushRx("OK\r\n");
 フレーミング、パリティ、ブレーク検出、フロー制御。
 
 実例: 1 つずつは `tests/runtime/lifecycle_hook`、`tests/runtime/clock_hook`、
-`tests/runtime/uart_buffer`。全部を同時に使う例が
+`tests/runtime/interrupt_hook`、`tests/runtime/uart_buffer`。全部を同時に使う例が
 `tests/runtime/accept_emu_tick` で、仮想時計の tick 模型が「そのために書かれて
 いない」普通のデバウンス + AT コマンドのスケッチを下から駆動します。
 
@@ -685,6 +783,7 @@ SDL2 画面とは別にログコンソールへ表示されます。
 - `cores/host/HostLifecycle.{h,cpp}`: Arduino thunk の前後 4 点（[ライフサイクル口](#ライフサイクル口)）。
 - `cores/host/HostClock.{h,cpp}`: コアが時計を読む唯一の場所と、待つ唯一の場所（[時計口](#時計口)）。
 - `cores/host/HostUart.{h,cpp}`: `Serial1` / `Serial2`、デバイス向け UART（[デバイス UART](#デバイス-uart)）。
+- `cores/host/HostInterrupt.{h,cpp}`: `attachInterrupt` が登録した内容と、それを呼び出す口（[割り込み口](#割り込み口)）。
 - `libraries/SPI/`、`libraries/Wire/`: 同梱の `SPI` / `Wire`。同じ観測口の SPI 半分と I²C 半分。
 - `cores/host/main.cpp`: `setup()` を 1 回呼び、その後ランタイムが終了要求を出すまで `loop()` を呼ぶ weak `main()`。
 - `scripts/bump_version.py`: `platform.txt` の `version=` と `libraries/Host/examples/*/*/sketch.yaml` の host platform バージョンを更新します。
