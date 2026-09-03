@@ -149,8 +149,8 @@ ESP32 拡張かを示します。
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
             clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
-            wire_hook, bus_trace, esp_random, esp_timer,
-            freertos_mutex, freertos_notify, freertos_queue,
+            wire_hook, bus_trace, accept_emu_tick, esp_random,
+            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
             freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
@@ -602,8 +602,10 @@ if (sent.startsWith("AT")) Serial1.pushRx("OK\r\n");
 再現しないもの: ボーレートのタイミング（書いた瞬間にバイトが現れます）、
 フレーミング、パリティ、ブレーク検出、フロー制御。
 
-実例: `tests/runtime/lifecycle_hook`、`tests/runtime/clock_hook`、
-`tests/runtime/uart_buffer`。
+実例: 1 つずつは `tests/runtime/lifecycle_hook`、`tests/runtime/clock_hook`、
+`tests/runtime/uart_buffer`。全部を同時に使う例が
+`tests/runtime/accept_emu_tick` で、仮想時計の tick 模型が「そのために書かれて
+いない」普通のデバウンス + AT コマンドのスケッチを下から駆動します。
 
 ## ボード
 

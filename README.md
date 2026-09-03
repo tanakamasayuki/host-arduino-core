@@ -150,8 +150,8 @@ behavioral coverage:
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
             clock_hook, uart_buffer, gpio_hook, analog_hook, spi_hook,
-            wire_hook, bus_trace, esp_random, esp_timer,
-            freertos_mutex, freertos_notify, freertos_queue,
+            wire_hook, bus_trace, accept_emu_tick, esp_random,
+            esp_timer, freertos_mutex, freertos_notify, freertos_queue,
             freertos_task
   storage/  fs, preferences
   network/  udp_recv, udp_echo, udp_broadcast, udp_no_begin, wifi,
@@ -642,7 +642,10 @@ Not modelled: baud timing (bytes appear the instant they are written),
 framing, parity, break detection, flow control.
 
 Worked examples: `tests/runtime/lifecycle_hook`, `tests/runtime/clock_hook`,
-and `tests/runtime/uart_buffer`.
+and `tests/runtime/uart_buffer` for one port each, and
+`tests/runtime/accept_emu_tick` for all of them at once — a virtual-clock
+tick model driving an ordinary debounce + AT-command sketch that was not
+written for it.
 
 ## Boards
 
