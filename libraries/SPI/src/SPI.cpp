@@ -5,10 +5,10 @@ SPIClass SPI(FSPI);
 
 void SPIClass::begin(int8_t sck, int8_t miso, int8_t mosi, int8_t ss)
 {
-    _sck = sck;
-    _miso = miso;
-    _mosi = mosi;
-    _ss = ss;
+    if (!_pinsPreset || sck != -1) _sck = sck;
+    if (!_pinsPreset || miso != -1) _miso = miso;
+    if (!_pinsPreset || mosi != -1) _mosi = mosi;
+    if (!_pinsPreset || ss != -1) _ss = ss;
     _begun = true;
     reportLifecycle(kBegin);
 }
