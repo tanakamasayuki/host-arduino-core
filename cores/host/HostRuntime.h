@@ -273,6 +273,14 @@ typedef void (*voidFuncPtrArg)(void *);
 void attachInterrupt(uint8_t pin, void (*handler)(void), int mode);
 void attachInterruptArg(uint8_t pin, void (*handler)(void *), void *arg, int mode);
 void detachInterrupt(uint8_t pin);
+// ArduinoCore-API's spelling of attachInterruptArg. Note the order: the
+// mode comes before the argument here and after it in arduino-esp32's.
+void attachInterruptParam(uint8_t pin, void (*handler)(void *), int mode, void *param);
+// Recorded, not enforced — see `HostArduino::interruptsEnabled()`. Plain
+// functions rather than arduino-esp32's `sei()` / `cli()` macros, so a
+// member or local named `interrupts` elsewhere is not rewritten.
+void interrupts();
+void noInterrupts();
 inline unsigned long pulseIn(int, int, unsigned long = 1000000UL) { return 0; }
 inline unsigned long pulseInLong(int, int, unsigned long = 1000000UL) { return 0; }
 

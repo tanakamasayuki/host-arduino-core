@@ -113,7 +113,22 @@ int interruptMode(int pin);
 bool triggerInterrupt(int pin);
 
 // Detach every pin and zero the counters, without touching the hook.
+// Also re-enables interrupts (see `interruptsEnabled`).
 void resetInterrupts();
+
+// What the sketch last asked for with `noInterrupts()` / `interrupts()`.
+// Not a counter: like `cli` / `sei` on the chip, two `noInterrupts()` are
+// undone by one `interrupts()`. Starts true.
+//
+// The core does not act on it — `triggerInterrupt` still calls the
+// handler while this is false — for the same reason it does not decide
+// edges: whatever decides to fire an interrupt is the one place that
+// should also decide whether a masked one is held, dropped, or counted
+// as a defect. That caller reads this and chooses.
+bool interruptsEnabled();
+// What `interrupts()` / `noInterrupts()` call. Public so a harness can put
+// the flag back without going through the sketch-facing names.
+void setInterruptsEnabled(bool enabled);
 
 } // namespace HostArduino
 
