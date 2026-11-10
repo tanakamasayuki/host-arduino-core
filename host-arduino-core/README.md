@@ -106,10 +106,11 @@ sketch puts on the bus.
 | `analogContinuous*` | 🔲 | ESP32 | not provided; no concrete sketch has needed it |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | returns `0` |
 | `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op stubs |
-| `attachInterrupt` / `attachInterruptArg` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`. The registration is kept and can be invoked from outside with `HostArduino::triggerInterrupt(pin)` — see [Interrupt Port](#interrupt-port). Nothing watches pin levels, so a `digitalWrite` or `setPinValue` never produces one: deciding an edge happened is the caller's job. The mode is reported both raw and as a normalized `InterruptTrigger`, because the raw numbers disagree with arduino-esp32 |
-| `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` reach a lifecycle hook, so bus setup lands in the same ordered trace as the traffic. `Wire1` also provided |
-| `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook, and `begin()` / `end()` / the configuration setters to a lifecycle hook. Timing is not modelled |
-| `Servo` | 🔲 | Arduino | no-op stub |
+| `attachInterrupt` / `attachInterruptArg` / `attachInterruptParam` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`. `attachInterruptParam` is ArduinoCore-API's spelling (mode before the argument). The registration is kept and can be invoked from outside with `HostArduino::triggerInterrupt(pin)` — see [Interrupt Port](#interrupt-port). Nothing watches pin levels, so a `digitalWrite` or `setPinValue` never produces one: deciding an edge happened is the caller's job. The mode is reported both raw and as a normalized `InterruptTrigger`, because the raw numbers disagree with arduino-esp32 |
+| `Wire` (I²C) | ✅ | Arduino | bundled `Wire` library. Init succeeds and no device answers (`endTransmission()` → 2, `requestFrom()` → 0) until a library-side model registers transaction hooks. `begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` reach a lifecycle hook, so bus setup lands in the same ordered trace as the traffic. `Wire1` also provided. Derives from `HardwareI2C` (also `arduino::HardwareI2C`) in arduino-esp32 3.x's shape. One-argument `begin(address)` is the slave role, as on arduino-esp32: recorded (`slave()`), reported once as a `[HostCore]` hint, not modelled. AVR's `setWireTimeout` / `getWireTimeoutFlag` / `clearWireTimeoutFlag` map onto `setTimeOut`; the flag is raised only by a write hook answering status 5. `WIRE_HAS_END` / `WIRE_HAS_TIMEOUT` / `WIRE_HAS_BUFFER_SIZE` / `BUFFER_LENGTH` / `WIRE_INTERFACES_COUNT` defined |
+| `SPI` | ✅ | Arduino | bundled `SPI` library. Every transferred byte reaches a hook whose return value is what the sketch reads back on MISO; `SPISettings` is exposed to a transaction hook, and `begin()` / `end()` / the configuration setters to a lifecycle hook. Timing is not modelled. Derives from ArduinoCore-API's `HardwareSPI` (also `arduino::HardwareSPI`); `SPIMode` is an enum; `setPins` stores pins for the next `begin()`; `SPI_HAS_TRANSACTION`, arduino-esp32's `SPI_CLOCK_DIVn`, and `SPI_INTERFACES_COUNT` defined |
+| `Servo` | ✅ | Arduino | bundled `Servo` library with the Arduino Servo API. No motor: `attach` / `write` / `detach` are `ledcAttach` (50 Hz, 16 bit) / `ledcWrite` (duty = pulse µs × 65536 / 20000) / `ledcDetach`, so servo motion reaches the analog write hook |
+| ArduinoCore-API / AVR names | ✅ | Arduino | `BitOrder` is an enum (`LSBFIRST` / `MSBFIRST` stay defined for `#ifdef`); `PinStatus` / `PinMode` / `pin_size_t` are integer typedefs; `namespace arduino` names the core types (`arduino::Stream` etc.). `interrupts()` / `noInterrupts()` are recorded (`HostArduino::interruptsEnabled()`), not enforced. `F_CPU` is 240 MHz with arduino-esp32's `clockCyclesPerMicrosecond` and conversions; `NOT_AN_INTERRUPT`, `OUTPUT_OPENDRAIN`, and the empty `esp_attr.h` attributes (`IRAM_ATTR`, `DRAM_ATTR`, ...) are defined |
 
 ### ESP-IDF / vendor extensions
 
@@ -150,7 +151,7 @@ behavioral coverage:
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
             clock_hook, uart_buffer, gpio_hook, interrupt_hook,
-            analog_hook, spi_hook, wire_hook, bus_trace,
+            analog_hook, spi_hook, wire_hook, bus_trace, api_compat,
             accept_emu_tick, esp_random, esp_timer, freertos_mutex,
             freertos_notify, freertos_queue, freertos_task
   storage/  fs, preferences

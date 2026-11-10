@@ -106,10 +106,11 @@ ESP32 拡張かを示します。
 | `analogContinuous*` | 🔲 | ESP32 | 未提供（必要とする具体的なスケッチがまだ無い） |
 | `touchRead` / `touchAttachInterrupt` | 🟡 | ESP32 | `0` を返す |
 | `pulseIn` / `pulseInLong` | 🟡 | Arduino | no-op |
-| `attachInterrupt` / `attachInterruptArg` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`。登録内容を保持し、外部から `HostArduino::triggerInterrupt(pin)` で呼び出せる（[割り込み口](#割り込み口)）。ピンの電位は監視しないので `digitalWrite` や `setPinValue` は割り込みを生まない — edge の判定は呼ぶ側の仕事。mode は生の値と正規化した `InterruptTrigger` の両方で報告される（生の値が arduino-esp32 と一致しないため） |
-| `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` はライフサイクルフックに届くので、バスの初期化が通信と同じ順序付きトレースに乗る。`Wire1` も提供 |
-| `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで、`begin()` / `end()` / 設定系セッターはライフサイクルフックで取れる。タイミングは再現しない |
-| `Servo` | 🔲 | Arduino | no-op スタブ |
+| `attachInterrupt` / `attachInterruptArg` / `attachInterruptParam` / `detachInterrupt` | ✅ | Arduino / ESP32 | `cores/host/HostInterrupt.h`。`attachInterruptParam` は ArduinoCore-API の綴り（mode が引数より前）。登録内容を保持し、外部から `HostArduino::triggerInterrupt(pin)` で呼び出せる（[割り込み口](#割り込み口)）。ピンの電位は監視しないので `digitalWrite` や `setPinValue` は割り込みを生まない — edge の判定は呼ぶ側の仕事。mode は生の値と正規化した `InterruptTrigger` の両方で報告される（生の値が arduino-esp32 と一致しないため） |
+| `Wire`（I²C） | ✅ | Arduino | 同梱 `Wire` ライブラリ。初期化は成功し、ライブラリ側の模型がトランザクションフックを登録するまでデバイスは応答しない（`endTransmission()` → 2、`requestFrom()` → 0）。`begin()` / `end()` / `setPins` / `setClock` / `setTimeOut` はライフサイクルフックに届くので、バスの初期化が通信と同じ順序付きトレースに乗る。`Wire1` も提供。arduino-esp32 3.x の形の `HardwareI2C`（`arduino::HardwareI2C` でも同じ）を継ぐ。引数 1 つの `begin(address)` は arduino-esp32 と同じくスレーブ: 記録し（`slave()`）、`[HostCore]` のヒントを 1 度出すが、模型化はしない。AVR の `setWireTimeout` / `getWireTimeoutFlag` / `clearWireTimeoutFlag` は `setTimeOut` に寄せ、フラグは書込みフックが状態 5 を返したときだけ立つ。`WIRE_HAS_END` / `WIRE_HAS_TIMEOUT` / `WIRE_HAS_BUFFER_SIZE` / `BUFFER_LENGTH` / `WIRE_INTERFACES_COUNT` を定義 |
+| `SPI` | ✅ | Arduino | 同梱 `SPI` ライブラリ。転送された 1 バイトごとにフックが呼ばれ、その戻り値が MISO としてスケッチに返る。`SPISettings` の中身はトランザクションフックで、`begin()` / `end()` / 設定系セッターはライフサイクルフックで取れる。タイミングは再現しない。ArduinoCore-API の `HardwareSPI`（`arduino::HardwareSPI` でも同じ）を継ぐ。`SPIMode` は enum。`setPins` は次の `begin()` のためにピンを覚える。`SPI_HAS_TRANSACTION`、arduino-esp32 の `SPI_CLOCK_DIVn`、`SPI_INTERFACES_COUNT` を定義 |
+| `Servo` | ✅ | Arduino | 同梱 `Servo` ライブラリ（Arduino Servo の API）。モーターは無い: `attach` / `write` / `detach` は `ledcAttach`（50 Hz、16 bit）/ `ledcWrite`（duty = パルス幅 µs × 65536 / 20000）/ `ledcDetach` なので、サーボの動きがアナログ書込みフックに届く |
+| ArduinoCore-API / AVR の名前 | ✅ | Arduino | `BitOrder` は enum（`LSBFIRST` / `MSBFIRST` は `#ifdef` 用に定義を残す）。`PinStatus` / `PinMode` / `pin_size_t` は整数の typedef。`namespace arduino` からコアの型が見える（`arduino::Stream` など）。`interrupts()` / `noInterrupts()` は記録するだけで（`HostArduino::interruptsEnabled()`）強制しない。`F_CPU` は 240 MHz で、`clockCyclesPerMicrosecond` と換算は arduino-esp32 と同じ。`NOT_AN_INTERRUPT`、`OUTPUT_OPENDRAIN`、空の `esp_attr.h` の属性（`IRAM_ATTR`、`DRAM_ATTR` など）を定義 |
 
 ### ESP-IDF / ベンダー拡張
 
@@ -149,7 +150,7 @@ ESP32 拡張かを示します。
 tests/
   runtime/  smoke, timing, print_api, esp_log, lifecycle_hook,
             clock_hook, uart_buffer, gpio_hook, interrupt_hook,
-            analog_hook, spi_hook, wire_hook, bus_trace,
+            analog_hook, spi_hook, wire_hook, bus_trace, api_compat,
             accept_emu_tick, esp_random, esp_timer, freertos_mutex,
             freertos_notify, freertos_queue, freertos_task
   storage/  fs, preferences

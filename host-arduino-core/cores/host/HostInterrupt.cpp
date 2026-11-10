@@ -1,5 +1,7 @@
 #include "Arduino.h"
 
+#include <atomic>
+
 namespace HostArduino {
 namespace {
 
@@ -25,6 +27,8 @@ InterruptTable &table()
     static InterruptTable t;
     return t;
 }
+
+std::atomic<bool> interrupts_enabled{true};
 
 InterruptHook interrupt_hook = nullptr;
 void *interrupt_hook_user = nullptr;
@@ -175,6 +179,17 @@ bool triggerInterrupt(int pin)
 void resetInterrupts()
 {
     table().reset();
+    interrupts_enabled = true;
+}
+
+bool interruptsEnabled()
+{
+    return interrupts_enabled;
+}
+
+void setInterruptsEnabled(bool enabled)
+{
+    interrupts_enabled = enabled;
 }
 
 } // namespace HostArduino
@@ -194,4 +209,19 @@ void attachInterruptArg(uint8_t pin, void (*handler)(void *), void *arg, int mod
 void detachInterrupt(uint8_t pin)
 {
     HostArduino::detach(pin);
+}
+
+void attachInterruptParam(uint8_t pin, void (*handler)(void *), int mode, void *param)
+{
+    HostArduino::attach(pin, nullptr, handler, param, mode);
+}
+
+void interrupts()
+{
+    HostArduino::setInterruptsEnabled(true);
+}
+
+void noInterrupts()
+{
+    HostArduino::setInterruptsEnabled(false);
 }

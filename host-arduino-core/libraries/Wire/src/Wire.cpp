@@ -1,5 +1,7 @@
 #include "Wire.h"
 
+#include <HostDiag.h>
+
 TwoWire Wire(0);
 TwoWire Wire1(1);
 
@@ -10,6 +12,7 @@ bool TwoWire::begin(int sda, int scl, uint32_t frequency)
     if (frequency) {
         _frequency = frequency;
     }
+    _slave = false;
     _begun = true;
     reportLifecycle(kBegin);
     return true;
@@ -17,10 +20,20 @@ bool TwoWire::begin(int sda, int scl, uint32_t frequency)
 
 bool TwoWire::begin(uint8_t address, int sda, int scl, uint32_t frequency)
 {
-    // Slave mode. Accepted so ESP32 sketches build; there is no master on
-    // the other side of a host bus, so nothing ever addresses us.
+    // Slave mode. Accepted and recorded; there is no master on the other
+    // side of a host bus, so nothing ever addresses us.
+    HOST_DIAG_ONCE("Wire.begin(address): slave mode recorded; the host core does not model the slave role, onReceive/onRequest are never called");
+    _sda = sda;
+    _scl = scl;
+    if (frequency) {
+        _frequency = frequency;
+    }
     _address = address;
-    return begin(sda, scl, frequency);
+    _slaveAddress = address;
+    _slave = true;
+    _begun = true;
+    reportLifecycle(kBegin);
+    return true;
 }
 
 bool TwoWire::end()
@@ -55,6 +68,14 @@ void TwoWire::setTimeOut(uint16_t timeout_ms)
     reportLifecycle(kSetTimeout);
 }
 
+void TwoWire::setWireTimeout(uint32_t timeout_us, bool reset_with_timeout)
+{
+    const uint32_t ms = (timeout_us + 999u) / 1000u;
+    _timeoutReset = reset_with_timeout;
+    _timeoutFlag = false;
+    setTimeOut(static_cast<uint16_t>(ms > 0xFFFFu ? 0xFFFFu : ms));
+}
+
 void TwoWire::beginTransmission(uint16_t address)
 {
     _address = address;
@@ -79,6 +100,9 @@ uint8_t TwoWire::endTransmission(bool sendStop)
     uint8_t status = 2; // address NACK: nothing on the bus by default
     if (_writeHook) {
         status = _writeHook(static_cast<uint8_t>(_address), _txBuffer, _txLength, sendStop, _writeHookUser);
+    }
+    if (status == 5) {
+        _timeoutFlag = true; // AVR's timeout status; see setWireTimeout
     }
     _txLength = 0;
     return status;
@@ -121,14 +145,17 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t size)
     return requestFrom(static_cast<uint16_t>(address), size, true);
 }
 
+// `size` goes through as a size_t (negative becomes 0), not as a uint8_t:
+// `requestFrom(addr, 300)` used to ask for 300 & 0xFF = 44 bytes. The
+// result still fits the return type because the buffer is smaller than 256.
 uint8_t TwoWire::requestFrom(int address, int size, int sendStop)
 {
-    return requestFrom(static_cast<uint16_t>(address), static_cast<uint8_t>(size), sendStop != 0);
+    return static_cast<uint8_t>(requestFrom(static_cast<uint16_t>(address), static_cast<size_t>(size < 0 ? 0 : size), sendStop != 0));
 }
 
 uint8_t TwoWire::requestFrom(int address, int size)
 {
-    return requestFrom(static_cast<uint16_t>(address), static_cast<uint8_t>(size), true);
+    return static_cast<uint8_t>(requestFrom(static_cast<uint16_t>(address), static_cast<size_t>(size < 0 ? 0 : size), true));
 }
 
 size_t TwoWire::write(uint8_t data)

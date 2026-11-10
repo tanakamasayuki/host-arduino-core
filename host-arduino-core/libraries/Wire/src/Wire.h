@@ -2,6 +2,7 @@
 #define HOST_ARDUINO_WIRE_H
 
 #include <Arduino.h>
+#include <HardwareI2C.h>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -48,13 +49,31 @@
 // class is served by the GPIO half of the port, not by these hooks.
 //
 // Not modelled: clock stretching, arbitration, bus timing, and the slave
-// role (`onReceive` / `onRequest` are accepted and never called).
+// role. `begin(address)` is accepted and recorded (`slave()`), and
+// `onReceive` / `onRequest` are kept, but nothing ever addresses the
+// sketch as a slave, so the callbacks are never called.
 
 #ifndef I2C_BUFFER_LENGTH
 #define I2C_BUFFER_LENGTH 128
 #endif
 
-class TwoWire : public Stream {
+// Feature macros drivers test with `#ifdef`. WIRE_HAS_END and
+// WIRE_HAS_BUFFER_SIZE are arduino-esp32's; WIRE_HAS_TIMEOUT is AVR's and
+// announces setWireTimeout / getWireTimeoutFlag / clearWireTimeoutFlag.
+#define WIRE_HAS_END 1
+#define WIRE_HAS_BUFFER_SIZE 1
+#define WIRE_HAS_TIMEOUT 1
+
+// AVR / ArduinoCore-API names. BUFFER_LENGTH is this core's buffer size,
+// not AVR's 32: it is how much one transaction can carry here.
+#ifndef BUFFER_LENGTH
+#define BUFFER_LENGTH I2C_BUFFER_LENGTH
+#endif
+#ifndef WIRE_INTERFACES_COUNT
+#define WIRE_INTERFACES_COUNT 2
+#endif
+
+class TwoWire : public HardwareI2C {
 public:
     // Return value is the `endTransmission` status the sketch sees:
     //   0 = success (ACK), 1 = data too long, 2 = address NACK,
@@ -67,8 +86,8 @@ public:
     using ReadHook = size_t (*)(uint8_t address, uint8_t *data, size_t len, bool stop, void *user);
 
     // Bus setup, in the order the sketch performed it. `kBegin` covers
-    // both the master and the slave overload — the slave role is not
-    // modelled, so there is nothing to tell the two apart afterwards.
+    // both the master and the slave overload; `slave()` on the object the
+    // hook receives tells them apart.
     enum LifecycleEvent : uint8_t {
         kBegin = 0,
         kEnd,
@@ -88,32 +107,80 @@ public:
 
     // --- Arduino / ESP32 surface -------------------------------------
 
-    // Master mode. The slave overload deliberately has no default
-    // arguments, matching arduino-esp32: with defaults on both, a call
-    // like `begin(21, 22, 400000)` would be ambiguous between them.
-    bool begin(int sda = -1, int scl = -1, uint32_t frequency = 0);
+    // The overload set is arduino-esp32 3.x's, and so is what each call
+    // means:
+    //   begin()                    master, default pins
+    //   begin(sda, scl[, freq])    master on those pins
+    //   begin(address)             SLAVE at `address` (any one-argument
+    //                              call, `Wire.begin(8)` included)
+    //   begin(address, sda, scl, freq)  slave on those pins
+    // The slave role is recorded, reported once as a [HostCore] hint, and
+    // otherwise not modelled.
+    bool begin() override { return begin(-1, -1, 0); }
+    bool begin(uint8_t address) override { return begin(address, -1, -1, 0); }
+    bool begin(int sda, int scl, uint32_t frequency = 0);
     bool begin(uint8_t address, int sda, int scl, uint32_t frequency);
-    bool end();
+    bool end() override;
 
     bool setPins(int sda, int scl);
-    bool setClock(uint32_t frequency);
+    bool setClock(uint32_t frequency) override;
     uint32_t getClock() const { return _frequency; }
     void setTimeOut(uint16_t timeout_ms);
     uint16_t getTimeOut() const { return _timeout; }
-    void setBufferSize(size_t) {}
+    // The buffers are fixed at I2C_BUFFER_LENGTH. Returns the size in
+    // force when the request fits in it and 0 when it does not, which is
+    // arduino-esp32's "could not allocate" answer.
+    size_t setBufferSize(size_t size) { return size <= I2C_BUFFER_LENGTH ? I2C_BUFFER_LENGTH : 0; }
+
+    // AVR timeout surface, mapped onto setTimeOut: microseconds rounded up
+    // to whole milliseconds, 0 meaning "no timeout" as on AVR. `reset` is
+    // recorded and has nothing to reset.
+    //
+    // A host bus cannot hang, so the core never sets the flag by itself.
+    // A device model sets it by answering a write with status 5 — the
+    // status AVR's endTransmission returns on a timeout — which is how a
+    // test exercises a driver's timeout path.
+    void setWireTimeout(uint32_t timeout_us = 25000, bool reset_with_timeout = false);
+    bool getWireTimeoutFlag() const { return _timeoutFlag; }
+    void clearWireTimeoutFlag() { _timeoutFlag = false; }
+    bool wireTimeoutReset() const { return _timeoutReset; }
 
     void beginTransmission(uint16_t address);
-    void beginTransmission(uint8_t address) { beginTransmission(static_cast<uint16_t>(address)); }
+    void beginTransmission(uint8_t address) override { beginTransmission(static_cast<uint16_t>(address)); }
     void beginTransmission(int address) { beginTransmission(static_cast<uint16_t>(address)); }
 
-    uint8_t endTransmission(bool sendStop);
-    uint8_t endTransmission() { return endTransmission(true); }
+    uint8_t endTransmission(bool sendStop) override;
+    uint8_t endTransmission() override { return endTransmission(true); }
 
+    // `(uint8_t, size_t, bool)` / `(uint8_t, size_t)` are the base class's
+    // (ArduinoCore-API's and arduino-esp32's) shape; `(int, size_t, bool)`
+    // exists so a literal address next to a size_t length is not ambiguous
+    // between the uint8_t and uint16_t address overloads. Lengths are never
+    // narrowed to a byte on the way in: every overload clamps to the
+    // buffer, so the uint8_t-returning ones cannot overflow either.
+    size_t requestFrom(uint8_t address, size_t size, bool sendStop) override
+    {
+        return requestFrom(static_cast<uint16_t>(address), size, sendStop);
+    }
+    size_t requestFrom(uint8_t address, size_t size) override
+    {
+        return requestFrom(static_cast<uint16_t>(address), size, true);
+    }
+    size_t requestFrom(int address, size_t size, bool sendStop)
+    {
+        return requestFrom(static_cast<uint16_t>(address), size, sendStop);
+    }
     size_t requestFrom(uint16_t address, size_t size, bool sendStop);
     uint8_t requestFrom(uint16_t address, uint8_t size, bool sendStop);
     uint8_t requestFrom(uint16_t address, uint8_t size);
     uint8_t requestFrom(uint8_t address, uint8_t size, bool sendStop);
     uint8_t requestFrom(uint8_t address, uint8_t size);
+    // AVR's three-byte form. Without it a call written that way (Adafruit
+    // BusIO's) only resolved through a GCC extension, with a warning.
+    uint8_t requestFrom(uint8_t address, uint8_t size, uint8_t sendStop)
+    {
+        return requestFrom(address, size, sendStop != 0);
+    }
     uint8_t requestFrom(int address, int size, int sendStop);
     uint8_t requestFrom(int address, int size);
 
@@ -136,8 +203,8 @@ public:
     void flush() override;
 
     // Slave role. Recorded so a sketch compiles; never invoked.
-    void onReceive(void (*callback)(int)) { _onReceive = callback; }
-    void onRequest(void (*callback)(void)) { _onRequest = callback; }
+    void onReceive(const std::function<void(int)> &callback) override { _onReceive = callback; }
+    void onRequest(const std::function<void()> &callback) override { _onRequest = callback; }
     size_t slaveWrite(const uint8_t *, size_t) { return 0; }
 
     uint8_t busNum() const { return _bus; }
@@ -173,6 +240,10 @@ public:
     }
 
     bool begun() const { return _begun; }
+    // True after a slave `begin(address, ...)`, false after a master one.
+    // `slaveAddress()` is the address it was given.
+    bool slave() const { return _slave; }
+    uint8_t slaveAddress() const { return _slaveAddress; }
     int sda() const { return _sda; }
     int scl() const { return _scl; }
 
@@ -190,6 +261,10 @@ public:
 private:
     uint8_t _bus;
     bool _begun = false;
+    bool _slave = false;
+    uint8_t _slaveAddress = 0;
+    bool _timeoutFlag = false;
+    bool _timeoutReset = false;
     int _sda = -1;
     int _scl = -1;
     uint32_t _frequency = 100000;
@@ -221,8 +296,8 @@ private:
         }
     }
 
-    void (*_onReceive)(int) = nullptr;
-    void (*_onRequest)(void) = nullptr;
+    std::function<void(int)> _onReceive;
+    std::function<void()> _onRequest;
 };
 
 extern TwoWire Wire;

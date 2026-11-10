@@ -72,12 +72,40 @@ typedef uint16_t word;
 #define OUTPUT_OPEN_DRAIN 0x4
 #endif
 
-#ifndef LSBFIRST
-#define LSBFIRST 0
+// ArduinoCore-API spelling. `OUTPUT_OPEN_DRAIN` above is the arduino-esp32
+// one; both name the same mode here.
+#ifndef OUTPUT_OPENDRAIN
+#define OUTPUT_OPENDRAIN OUTPUT_OPEN_DRAIN
 #endif
-#ifndef MSBFIRST
-#define MSBFIRST 1
+
+// Bit order is an enum, as in ArduinoCore-API, rather than the two plain
+// macros arduino-esp32 uses. A library written against the API declares
+// parameters of type `BitOrder` and passes `MSBFIRST` into them (Adafruit
+// BusIO does exactly this when the platform is neither AVR nor ESP32), and
+// an int macro cannot convert to an enum. The values are unchanged, an
+// unscoped enumerator still converts to `uint8_t` / `int` wherever the
+// ESP32 spelling expects one, and the macros are kept defined (to
+// themselves) so `#ifdef MSBFIRST` still holds. If something defined them
+// before this header, that definition wins and no enum is declared.
+#if !defined(LSBFIRST) && !defined(MSBFIRST)
+typedef enum {
+    LSBFIRST = 0,
+    MSBFIRST = 1,
+} BitOrder;
+#define LSBFIRST LSBFIRST
+#define MSBFIRST MSBFIRST
+#define HOST_ARDUINO_HAS_BITORDER_ENUM 1
+#else
+typedef uint8_t BitOrder;
 #endif
+
+// ArduinoCore-API names for pin values and modes. They stay integers here:
+// `digitalRead` returns `int` and HIGH / LOW / INPUT / ... are macros with
+// this core's long-standing numbering, so an enum would either refuse
+// `PinStatus s = digitalRead(pin)` or renumber CHANGE / FALLING / RISING.
+typedef int PinStatus;
+typedef int PinMode;
+typedef uint8_t pin_size_t;
 
 #ifndef CHANGE
 #define CHANGE 1
@@ -144,6 +172,33 @@ typedef uint16_t word;
 #ifndef _BV
 #define _BV(b) (1UL << (b))
 #endif
+
+// CPU clock. There is no CPU clock to speak of on the host, so this is the
+// classic ESP32's default (240 MHz) — the value an ESP32 sketch would see —
+// and the conversions below are arduino-esp32's, in terms of it. Drivers
+// that busy-wait in cycles (DHT and friends) use these to size loops; they
+// compile and stay self-consistent, they do not time anything.
+#ifndef F_CPU
+#define F_CPU 240000000U
+#endif
+inline uint32_t getCpuFrequencyMhz() { return F_CPU / 1000000U; }
+#ifndef clockCyclesPerMicrosecond
+#define clockCyclesPerMicrosecond() ((long int)getCpuFrequencyMhz())
+#endif
+#ifndef clockCyclesToMicroseconds
+#define clockCyclesToMicroseconds(a) ((a) / clockCyclesPerMicrosecond())
+#endif
+#ifndef microsecondsToClockCycles
+#define microsecondsToClockCycles(a) ((a) * clockCyclesPerMicrosecond())
+#endif
+
+#ifndef NOT_AN_INTERRUPT
+#define NOT_AN_INTERRUPT -1
+#endif
+
+// Placement attributes from esp_attr.h. Memory placement means nothing on
+// the host; empty so `void IRAM_ATTR isr()` compiles unchanged.
+#include "esp_attr.h"
 
 // arduino-esp32 compatibility. On the ESP32 core these macros override weak
 // functions the runtime consults during startup. The host build has no loop
@@ -221,5 +276,24 @@ inline void randomSeed(unsigned long seed)
 
 inline uint16_t makeWord(uint16_t w) { return w; }
 inline uint16_t makeWord(uint8_t h, uint8_t l) { return (static_cast<uint16_t>(h) << 8) | l; }
+
+// ArduinoCore-API puts its types in `namespace arduino`, and libraries
+// written against it spell them `arduino::Stream` and so on. This core
+// keeps them at global scope (as arduino-esp32 does) and makes the same
+// types reachable under the API's names. They are the same types, not
+// copies, so an `arduino::Stream &` binds to `Serial`. HardwareI2C and
+// HardwareSPI join the namespace from their own headers.
+namespace arduino {
+using ::BitOrder;
+using ::HardwareSerial;
+using ::IPAddress;
+using ::PinMode;
+using ::PinStatus;
+using ::Print;
+using ::Printable;
+using ::Stream;
+using ::String;
+using ::pin_size_t;
+} // namespace arduino
 
 #endif
