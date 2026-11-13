@@ -4,7 +4,7 @@ profiles:
     platforms:
       - platform: lang-ship:host
     libraries:
-      - M5Unified (0.2.18)
-      - M5GFX (0.2.25)
+      - M5Unified (0.3.0)
+      - M5GFX (0.3.0)
 
 default_profile: display

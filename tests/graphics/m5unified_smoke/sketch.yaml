@@ -5,8 +5,8 @@ profiles:
       - platform: lang-ship:host
     port: socket://localhost
     libraries:
-      - M5Unified (0.2.18)
-      - M5GFX (0.2.25)
+      - M5Unified (0.3.0)
+      - M5GFX (0.3.0)
       - dir: ../../common_libs/gfx_demo
 
 default_profile: host

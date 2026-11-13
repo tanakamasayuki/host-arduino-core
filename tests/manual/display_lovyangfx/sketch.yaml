@@ -4,6 +4,6 @@ profiles:
     platforms:
       - platform: lang-ship:host
     libraries:
-      - LovyanGFX (1.2.25)
+      - LovyanGFX (1.3.0)
 
 default_profile: display
